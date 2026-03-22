@@ -1746,7 +1746,16 @@ function pinCheck() {
   }
 }
 
-/* Keyboard support for PIN entry */
+/* Keyboard support for the SET-PIN modal */
+document.addEventListener('keydown', function(e) {
+  var spOverlay = document.getElementById('set-pin-overlay');
+  if (spOverlay && spOverlay.style.display === 'flex') {
+    if (e.key >= '0' && e.key <= '9') { spDigit(e.key); return; }
+    if (e.key === 'Backspace') { e.preventDefault(); spDelete(); return; }
+  }
+});
+
+/* Keyboard support for the LOGIN PIN entry */
 document.addEventListener('keydown', function(e) {
   var overlay = document.getElementById('pin-overlay');
   if (!overlay || overlay.style.display === 'none') return;
@@ -2696,6 +2705,31 @@ async function loadDomainList() {
       domainState[d.domain] = { up: null, latency: null, history: [] };
     }
   });
+
+  /* Try to load SSL expiry data from domains.json (written by update-stats.php).
+   * This is the authoritative SSL source when the PHP cron is running.
+   * It populates sslExpiry before the first DNS check, so SSL shows immediately. */
+  try {
+    var jsonRes = await fetch('./domains.json', { cache: 'no-cache' });
+    if (jsonRes.ok) {
+      var jsonData = await jsonRes.json();
+      if (jsonData && jsonData.domains) {
+        var sslMap = {};
+        jsonData.domains.forEach(function(d) {
+          if (d.domain && d.ssl_expiry) sslMap[d.domain] = { expiry: d.ssl_expiry, issuer: d.ssl_issuer || '' };
+        });
+        /* Apply SSL data to DOMAINS array */
+        DOMAINS.forEach(function(d) {
+          if (sslMap[d.domain] && !d.sslExpiry) {
+            d.sslExpiry = sslMap[d.domain].expiry;
+            d.sslIssuer = sslMap[d.domain].issuer;
+            _sslChecked[d.domain] = true; /* don't re-query crt.sh for these */
+          }
+        });
+        console.log('[Eye] SSL data loaded from domains.json for ' + Object.keys(sslMap).length + ' domains');
+      }
+    }
+  } catch(e) { /* domains.json not available — crt.sh fallback will run */ }
 }
 
 /** Attempt to persist a new domain to domains.list via HTTP PUT */
@@ -2978,16 +3012,35 @@ var spPin2   = '';   /* confirmation entry */
 /** Called after correct PIN unlock — check if it was the default */
 function checkFirstUse() {
   if (PIN_HASH !== DEFAULT_PIN_HASH) {
-    /* User already has a custom PIN — go straight to dashboard */
+    /* Custom PIN set — go straight to dashboard */
     initDashboard();
     return;
   }
-  /* Default PIN detected — show the set-PIN modal */
+  /* Default PIN — go to set-PIN modal */
   var overlay = document.getElementById('set-pin-overlay');
   if (overlay) overlay.style.display = 'flex';
   spPhase = 1; spPin1 = ''; spPin2 = '';
   spUpdateDots();
 }
+
+/*
+ * ON PAGE LOAD: check whether a PIN has been configured.
+ * If PIN_HASH is still the default (meaning no custom PIN set yet),
+ * show the set-PIN modal DIRECTLY — user never needs to type "123456".
+ * The login overlay is hidden and the set-PIN flow takes over.
+ * If a custom PIN is already set, the login overlay stays visible normally.
+ */
+(function() {
+  if (PIN_HASH === DEFAULT_PIN_HASH) {
+    /* First-time visitor — hide PIN login, show set-PIN modal directly */
+    var loginOverlay = document.getElementById('pin-overlay');
+    if (loginOverlay) loginOverlay.style.display = 'none';
+    var setPinOverlay = document.getElementById('set-pin-overlay');
+    if (setPinOverlay) setPinOverlay.style.display = 'flex';
+    spPhase = 1; spPin1 = ''; spPin2 = '';
+    spUpdateDots();
+  }
+})();
 
 /** Update the two rows of dots in the Set-PIN modal */
 function spUpdateDots(errorRow) {
@@ -3052,7 +3105,7 @@ function spConfirm() {
     if (overlay) overlay.style.display = 'none';
     if (!saved) {
       /* PUT failed — show the hash so they can update manually */
-      alert('PIN set! Your new PIN is active. To make it permanent, open index.html and set PIN_HASH to: ' + newHash);
+      showPinSuccessModal(newHash);
     }
     initDashboard();
   });
@@ -3063,6 +3116,77 @@ function spSkip() {
   var overlay = document.getElementById('set-pin-overlay');
   if (overlay) overlay.style.display = 'none';
   initDashboard();
+}
+
+/**
+ * Show a nice success modal after PIN is set.
+ * Replaces the jarring browser alert() with an in-UI confirmation.
+ *
+ * @param {string|null} newHash — the hash if manual update is needed, null if auto-saved
+ */
+function showPinSuccessModal(newHash) {
+  /* Create modal if it doesn't exist */
+  var existing = document.getElementById('pin-success-modal');
+  if (existing) existing.remove();
+
+  var modal = document.createElement('div');
+  modal.id = 'pin-success-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(15,17,23,0.85);' +
+    'backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;' +
+    'animation:card-in 0.25s cubic-bezier(.34,1.56,.64,1)';
+
+  var note = newHash
+    ? '<p style="font-size:var(--text-xs);color:var(--text-muted);background:var(--surface-2);' +
+      'border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);' +
+      'margin-top:var(--space-4);font-family:var(--font-mono);word-break:break-all;line-height:1.6">' +
+      '⚠ To make it permanent, update PIN_HASH in index.html to:<br><strong>' + newHash + '</strong></p>'
+    : '';
+
+  /* Build inner HTML safely — use a temp div approach to avoid quote nesting */
+  var successMsg = newHash
+    ? 'Your new PIN is active. See note below to make it permanent.'
+    : 'Your new PIN has been saved permanently.';
+
+  var inner = document.createElement('div');
+  inner.style.cssText = 'background:var(--surface);border:1px solid var(--border);' +
+    'border-radius:var(--radius-xl);padding:var(--space-10) var(--space-8);width:min(400px,92vw);' +
+    'text-align:center;box-shadow:var(--shadow-lg),var(--shadow-glow)';
+
+  var icon = document.createElement('div');
+  icon.style.cssText = 'font-size:48px;margin-bottom:var(--space-4)';
+  icon.textContent = '🔐';
+
+  var title = document.createElement('h2');
+  title.style.cssText = 'font-family:var(--font-display);font-size:var(--text-lg);font-weight:700;' +
+    'letter-spacing:-0.02em;margin-bottom:var(--space-2)';
+  title.textContent = 'PIN set!';
+
+  var msg = document.createElement('p');
+  msg.style.cssText = 'font-size:var(--text-sm);color:var(--text-muted);margin-bottom:var(--space-2)';
+  msg.textContent = successMsg;
+
+  var btn = document.createElement('button');
+  btn.style.cssText = 'margin-top:var(--space-6);padding:var(--space-3) var(--space-8);' +
+    'background:var(--accent);color:#fff;border:none;border-radius:var(--radius-md);' +
+    'font-family:var(--font-display);font-size:var(--text-sm);font-weight:700;cursor:pointer';
+  btn.textContent = 'Open Dashboard →';
+  btn.addEventListener('click', function() {
+    document.getElementById('pin-success-modal').remove();
+    initDashboard();
+  });
+
+  inner.appendChild(icon);
+  inner.appendChild(title);
+  inner.appendChild(msg);
+  if (note) {
+    var noteEl = document.createElement('div');
+    noteEl.innerHTML = note;
+    inner.appendChild(noteEl);
+  }
+  inner.appendChild(btn);
+  modal.appendChild(inner);
+
+  document.body.appendChild(modal);
 }
 
 /**

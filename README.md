@@ -201,26 +201,45 @@ On startup, the app tries `fetch('./domains.list')`. If the file exists and is n
 
 > Full changelog: **[CHANGELOG.md](./CHANGELOG.md)**
 
-### 🔖 v1.1.0 — 2026-03-22
+### 🔖 v1.4.0 — 2026-03-22
+- 🔄 **fix:** SSL enrichment now works for all `domains.list` domains — `_sslChecked` session cache prevents redundant crt.sh queries; `loadDomainList()` reads `domains.json` from PHP cron as authoritative SSL source
+- 🎨 **feat:** Refresh button shows spinning icon + "Checking…" during scan, disabled to prevent double-click
+- 📦 **feat:** `index.standalone.html` — self-contained single-file build (CSS + JS inlined), required for simple server deploys
 
-- 🎉 Initial release
-- ✅ Live DNS checks via Cloudflare DoH (A, NS, MX, TXT, DMARC)
-- ✅ PIN gate with SHA-256 hash (stateless, no caching bug)
-- ✅ Progressive batch scanning with loading opacity states
-- ✅ Per-row ↺ refresh with full DNS scan
-- ✅ Rate limiting (global 10s + per-domain 5s)
-- ✅ Dark / Light mode toggle switch
-- ✅ `domains.list` loader with BUILTIN fallback
-- ✅ PHP cron script (`update-stats.php`) for SiteGround/cPanel
-- ✅ `webhook.do` for external cron services (cron-job.org etc.)
-- ✅ Export CSV + auto-write to `domains.stats`
-- ✅ Add Domain modal with live check on confirm
-- ✅ Webhook modal + Help/Info modal with GitHub link
-- ✅ Hover tooltips on NS, MX, DMARC, SPF columns
+### 🔖 v1.3.0 — 2026-03-22
+- 📦 **feat:** CSS + JS split into `app.css` / `app.js` modules — `index.html` reduced from 130KB → 29KB (−78%)
+- ✨ **feat:** 500ms minimum row loading animation; animated sweep progress bar during full scan
+- 📝 **fix:** INSTALL.md Option B — ⚠️ `.htaccess` rule for `webhook.do` documented with SiteGround instructions
+
+### 🔖 v1.2.0 — 2026-03-22
+- 🔐 **feat:** Live SSL expiry via crt.sh; `LE` badge for Let's Encrypt certs; PHP TLS handshake in `update-stats.php`
+- 🌐 **fix:** 7 BUILTIN NS entries corrected to `Domain` (facebook, apple, cloudflare…)
+
+### 🔖 v1.1.0 — 2026-03-22
+- 🔐 **feat:** First-PIN-sets-PIN — default PIN triggers set-PIN modal before dashboard loads
+- 🌐 **feat:** Smart NS detection — SiteGround named explicitly; self-hosted NS labelled `Domain`
+- 🐛 **fix:** DNS parsing hardened — TXT/DMARC quote stripping, MX priority prefix stripping
+
+### 🔖 v1.0.0 — 2026-03-22
+- 🎉 Initial release — live DNS checks, PIN gate, dark/light mode, `domains.list`, PHP cron, webhook, CSV export
+
+---
+
+## ⬇️ Download
+
+**No git required.** Download the latest release as a ZIP:
+
+👉 **[Download all-seeing-eye.zip](https://github.com/paulfxyz/the-all-seeing-eye/archive/refs/heads/main.zip)**
+
+Unzip it, upload the files to your web server, done. See [INSTALL.md](./INSTALL.md) for the full guide.
+
+> **Which file to upload?** If your server already has `app.css` and `app.js`:
+> use `index.html`. For a quick single-file deploy: rename `index.standalone.html` → `index.html` and upload just that one file.
 
 ---
 
 ## 🤝 Contributing
+
 
 Pull requests are very welcome! Ideas: SSL expiry live check, ping history graphs, Slack/email alerts, multi-user support, mobile layout improvements.
 

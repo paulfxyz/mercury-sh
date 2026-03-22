@@ -10,6 +10,50 @@ and adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## 🔖 [1.5.0] — 2026-03-22
+
+### 🔐 PIN-Free First Visit + SSL via domains.json + README Download Link
+
+---
+
+#### PIN-Free First Visit
+
+- **The problem:** New users had to type "123456" (the default PIN) before getting the set-PIN prompt. This was confusing and pointless — the default PIN is public.
+- **The fix:** On page load, an IIFE checks `PIN_HASH === DEFAULT_PIN_HASH`. If true, the login overlay is hidden immediately and the set-PIN modal is shown directly — no default PIN entry required.
+- **Keyboard support added for set-PIN modal** — previously only the login numpad had keyboard support. Now typing digits or Backspace works in the set-PIN modal too.
+- **Browser alert replaced** — `spConfirm()` called `alert()` to show the new PIN hash. Replaced with a proper `showPinSuccessModal()` — a blurred overlay with a 🔐 icon, message, and "Open Dashboard →" button. Built with DOM API (no innerHTML quote issues).
+
+#### SSL via domains.json
+
+- **The problem:** `crt.sh` times out for many small/private domains (observed ~50% failure rate on Paul's 34-domain list). Domains loaded from `domains.list` never got SSL expiry dates.
+- **The fix:** `loadDomainList()` now tries `fetch('./domains.json')` after loading domains. This file is written by `update-stats.php` (which uses real TLS handshakes). When available, SSL expiry + issuer from `domains.json` are applied to the DOMAINS array before the first DNS check — SSL column populates immediately.
+- `_sslChecked[domain] = true` is set for domains enriched from `domains.json` so crt.sh isn't queried redundantly.
+- **PHP fix:** `$results[]` array in `update-stats.php` was missing `ssl_expiry` and `ssl_issuer` — both now included.
+- crt.sh remains as a secondary fallback for domains not covered by `domains.json`.
+
+#### README improvements
+
+- **Download link added** — GitHub archive ZIP URL in the README so users without git can download directly.
+- **Changelog section updated** — now shows all versions v1.0.0–v1.4.0 accurately.
+- **Which file to upload** guidance added.
+
+### ✨ Added
+
+- **`showPinSuccessModal(newHash)`** — in-UI success modal replacing `alert()`
+- **Set-PIN keyboard handler** — `keydown` listener for the set-PIN modal (digits + Backspace)
+- **`loadDomainList()` domains.json fetch** — seeds SSL expiry from PHP cron output
+- **Download ZIP link** in README
+
+### 🔄 Changed
+
+- PIN login flow: IIFE auto-redirects to set-PIN modal when `PIN_HASH === DEFAULT_PIN_HASH`
+- `spConfirm()` — calls `showPinSuccessModal()` instead of `alert()`
+- `update-stats.php` `$results[]` — `ssl_expiry` and `ssl_issuer` now included
+- `loadDomainList()` — reads `domains.json` after domain list load to seed SSL data
+- README — changelog accurate, download section added
+
+---
+
 ## 🔖 [1.4.0] — 2026-03-22
 
 ### 🐛 SSL Enrichment + Refresh Visual Feedback + Standalone Build
