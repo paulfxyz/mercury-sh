@@ -98,26 +98,31 @@ Results appear **progressively** as each batch of 5 domains resolves — you see
 
 ### Drop-in install (any web server)
 
+> **Which file is the app?** Use `index.standalone.html` — rename it to `index.html` when uploading. It has CSS + JS fully inlined so it works as a single self-contained file. You do not need to upload `app.css` or `app.js` separately for a basic deploy.
+
 ```bash
 # 1. Clone the repo
 git clone https://github.com/paulfxyz/the-all-seeing-eye.git
 cd the-all-seeing-eye
 
-# 2. Upload to your web server (e.g. SiteGround public_html)
-# scp -r . user@yourhost:/public_html/uptime/
+# 2. Rename the standalone build
+cp index.standalone.html index.html
 
-# 3. Visit https://yourdomain.com/uptime/
-# Default PIN: 123456  ← change this before going live!
+# 3. Upload to your web server (SiteGround, Nginx, Apache…)
+# scp index.html domains.list update-stats.php webhook.do user@host:/public_html/uptime/
+
+# 4. Visit https://yourdomain.com/uptime/
+# On first visit you'll be prompted to set your PIN — no default to remember.
 ```
 
-That's it. No npm, no Composer, no build step. Open the file — it works.
+No npm, no Composer, no build step.
 
 ### Using as a local file
 
 ```bash
-# Just open index.html directly in your browser
-open index.html
-# The built-in top-30 list loads. domains.list requires a web server.
+open index.standalone.html
+# Opens in your browser with the built-in top-30 list.
+# (domains.list requires a local web server to load.)
 ```
 
 ---

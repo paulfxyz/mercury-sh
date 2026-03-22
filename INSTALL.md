@@ -7,21 +7,66 @@ Runs entirely in the browser — no framework, no build step, no database.
 
 ## What's in the ZIP
 
+### Two versions of the app — which one to use?
+
+| | `index.standalone.html` | `index.html` |
+|---|---|---|
+| **Use for** | Server deployment | Local development |
+| **How it works** | CSS + JS fully inlined — one self-contained file | Loads `app.css` and `app.js` as separate files |
+| **What to upload** | Just this one file (rename to `index.html`) | All three files: `index.html` + `app.css` + `app.js` |
+| **File size** | ~142 KB | 33 KB + 41 KB + 82 KB |
+| **Browser caching** | No (everything in one file) | Yes (CSS/JS cached separately) |
+| **Why it exists** | Some servers serve files without importing siblings correctly; a single self-contained file eliminates all path/MIME issues | Easier to diff, read and maintain during development |
+
+> **TL;DR: upload `index.standalone.html`, rename it to `index.html`. Done.**
+
+### Full file manifest
+
 | File | Purpose |
 |---|---|
-| `index.html` | The full application — one self-contained HTML file |
-| `domains.list` | Your domain watchlist — one domain per line |
-| `domains.stats` | CSV snapshot of the last check (updated by cron or browser export) |
-| `domains.json` | JSON snapshot written by `update-stats.php` (optional) |
-| `update-stats.php` | Server-side cron script — checks DNS + writes stats (no chmod needed) |
-| `webhook.do` | Browser-based headless endpoint — used by cron-job.org and similar |
+| `index.standalone.html` | **← Deploy this.** Self-contained: CSS + JS inlined. Rename to `index.html` when uploading. |
+| `index.html` | Modular shell — references `app.css` + `app.js`. Use for local development. |
+| `app.css` | All styles (41 KB) — only needed alongside the modular `index.html` |
+| `app.js` | All JavaScript (82 KB) — only needed alongside the modular `index.html` |
+| `domains.list` | Your domain watchlist — one domain per line, `#` for comments |
+| `domains.stats` | CSV snapshot updated after every check (requires server write access) |
+| `domains.json` | JSON written by `update-stats.php` — the browser reads this for SSL expiry dates |
+| `update-stats.php` | Server-side cron script — real TLS cert checks, writes `domains.json` |
+| `webhook.do` | Headless endpoint for external cron services (cron-job.org etc.) |
 | `INSTALL.md` | This file |
 
 ---
 
 ## Step 1 — Upload the files
 
-Upload all files to a directory on your hosting. For example:
+> **Which file is your `index.html`?**
+>
+> Use **`index.standalone.html`** — rename it to `index.html` before uploading.
+> It has everything inlined (CSS + JS) and works as a single file on any server.
+> You do not need to upload `app.css` or `app.js` separately.
+>
+> The reason this exists: after v1.3.0 split CSS and JS into separate modules,
+> some server configurations had trouble serving sibling files correctly.
+> `index.standalone.html` eliminates all path and MIME-type issues by bundling
+> everything into one file — the same approach used for the top-30 demo.
+
+**Minimum files to upload for a working dashboard:**
+
+```
+index.standalone.html  → rename to index.html
+domains.list           → your domain watchlist
+```
+
+**Additional files for full functionality (cron + webhook):**
+
+```
+update-stats.php       → PHP cron script (SSL expiry, DNS stats)
+webhook.do             → external cron endpoint
+domains.stats          → created automatically (optional to pre-upload)
+domains.json           → created automatically by update-stats.php
+```
+
+Upload these to a directory on your hosting, e.g.:
 
 ```
 /public_html/uptime/
@@ -29,7 +74,7 @@ Upload all files to a directory on your hosting. For example:
 
 So your dashboard is at `https://yourdomain.com/uptime/`
 
-Default file permissions (644) are fine for everything. No `chmod 666` needed.
+Default file permissions (644) are fine. No `chmod 666` needed.
 
 ---
 
