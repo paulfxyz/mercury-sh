@@ -10,6 +10,42 @@ and adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## 🔖 [2.2.1] — 2026-03-22
+
+### 🐛 Hotfix — Browser Cache Headers · Clean domains.stats · .htaccess Security
+
+---
+
+#### Root cause of "still seeing old version"
+
+Browsers aggressively cache `.html`, `.js`, and `.css` files. After uploading new files to a server, visitors (including the site owner) may continue to see the old cached version for hours or days — even after a hard refresh in some CDN setups.
+
+**The fix:** A new `.htaccess` file sets `Cache-Control: no-cache, no-store, must-revalidate` on all application files (`.html`, `.js`, `.css`, `.php`). This instructs the browser and any proxy to always revalidate before serving a cached copy — guaranteeing the latest code is always loaded.
+
+#### domains.stats — no personal domains in repo
+
+The `domains.stats` file shipped in the repo was rebuilt using the top-50 world domains. No personal or private domain names appear in any file distributed via the GitHub repo or ZIP.
+
+#### .htaccess security additions
+
+- `ase_config.json` (stores PIN hash) — blocked from direct browser access
+- `domains.stats` (CSV snapshot) — blocked from direct browser access  
+- `cron.log` (PHP cron output) — blocked from direct browser access
+
+These files are only accessed by the PHP scripts internally — they should not be publicly readable.
+
+### 🐛 Fixed
+
+- `.htaccess` created with `no-cache` headers for `.html`, `.js`, `.css`, `.php`
+- `domains.stats` rebuilt: top-50 world domains, no personal domains
+- `ase_config.json`, `domains.stats`, `cron.log` protected from direct HTTP access
+
+### ✨ Added
+
+- `.htaccess` — new file; covers cache control, webhook routing, and file access protection
+
+---
+
 ## 🔖 [2.2.0] — 2026-03-22
 
 ### 🌍 Top-50 World Domains · Fallback List Expanded

@@ -18,6 +18,7 @@ Runs entirely in the browser — no framework, no build step, no database.
 | `update-stats.php` | Server-side cron script — real TLS cert checks, writes `domains.json` |
 | `config-write.php` | PHP config endpoint — reads/writes `ase_config.json` (PIN, theme, custom domains) |
 | `ase_config.json` | Auto-created on first PIN change — persists settings across all browsers/devices |
+| `.htaccess` | Apache config: no-cache headers + webhook routing + file protection |
 | `webhook.do` | Headless endpoint for external cron services (cron-job.org etc.) |
 | `INSTALL.md` | This file |
 

@@ -6,7 +6,7 @@
 ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
 ![PHP](https://img.shields.io/badge/PHP-777BB4?style=for-the-badge&logo=php&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-![Version](https://img.shields.io/badge/version-2.2.0-brightgreen?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-2.2.1-brightgreen?style=for-the-badge)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-no_server_needed-blue?style=for-the-badge)
 
 **Open-source uptime, DNS, SSL and latency monitor. One HTML file. Zero dependencies.**
@@ -278,6 +278,11 @@ The skeleton → progressive fill is intentional UX: the user sees their domains
 ## 📝 Changelog
 
 > Full changelog: **[CHANGELOG.md](./CHANGELOG.md)**
+
+### 🔖 v2.2.1 — 2026-03-22
+- 🐛 **fix:** `.htaccess` added — `no-cache` headers for HTML/JS/CSS/PHP prevent stale browser cache after updates
+- 🐛 **fix:** `domains.stats` rebuilt with top-50 world domains (no personal domains in repo)
+- 🔒 **fix:** `.htaccess` blocks direct browser access to `ase_config.json`, `domains.stats`, `cron.log`
 
 ### 🔖 v2.2.0 — 2026-03-22
 - 🌍 **feat:** Built-in fallback list expanded from top-30 to **top-50** world's most-visited domains (Zoom, Stripe, Shopify, Notion, Figma, Vercel, Slack, Airbnb, Uber, Adobe, Salesforce, Paypal, Dropbox, Tesla, Atlassian, HubSpot, eBay, WordPress, Twilio, Twitter)
