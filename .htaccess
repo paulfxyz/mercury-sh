@@ -1,0 +1,21 @@
+# All-Seeing-Eye — Apache configuration
+# Place this file in the same directory as index.html
+
+# ── Prevent browser caching of the app files ─────────────────────
+# Forces the browser to always fetch fresh HTML/JS/CSS — prevents
+# stale cached versions after an update.
+<FilesMatch "\.(html|js|css|php)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+</FilesMatch>
+
+# ── Route webhook.do to the webhook HTML file ─────────────────────
+RewriteEngine On
+RewriteRule ^webhook\.do$ webhook.do [L,T=text/html]
+
+# ── Protect sensitive files ───────────────────────────────────────
+<FilesMatch "^(ase_config\.json|domains\.stats|cron\.log)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
