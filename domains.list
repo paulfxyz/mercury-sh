@@ -1,7 +1,8 @@
-# All-Seeing-Eye — Domain List
+# All-Seeing-Eye — Default Domain Watchlist
+# World's top 50 most-visited domains (Similarweb / Cloudflare Radar 2025)
 # One domain per line. Lines starting with # are ignored.
-# This file is loaded at runtime. If missing, the built-in top-30 list is used.
-# Format: just the bare domain, e.g. google.com
+# Replace this file with your own domains to monitor your infrastructure.
+# If this file is missing or unreadable, the built-in top-50 list is used.
 
 google.com
 youtube.com
@@ -33,3 +34,23 @@ cloudflare.com
 stackoverflow.com
 nytimes.com
 pinterest.com
+zoom.us
+salesforce.com
+paypal.com
+ebay.com
+wordpress.com
+adobe.com
+dropbox.com
+shopify.com
+tesla.com
+airbnb.com
+uber.com
+twitter.com
+twilio.com
+stripe.com
+notion.so
+slack.com
+atlassian.com
+hubspot.com
+figma.com
+vercel.com

@@ -6,7 +6,7 @@
 ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
 ![PHP](https://img.shields.io/badge/PHP-777BB4?style=for-the-badge&logo=php&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-![Version](https://img.shields.io/badge/version-2.1.1-brightgreen?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-2.2.0-brightgreen?style=for-the-badge)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-no_server_needed-blue?style=for-the-badge)
 
 **Open-source uptime, DNS, SSL and latency monitor. One HTML file. Zero dependencies.**
@@ -115,7 +115,7 @@ No npm, no Composer, no build step. Upload `index.html`, `app.css`, `app.js`, an
 ```bash
 open index.html
 # Requires a local web server for domains.list to load.
-# Built-in top-30 list is used as fallback.
+# Built-in top-50 list is used as fallback.
 ```
 ---
 
@@ -250,7 +250,7 @@ SPF and DMARC are parsed from `TXT` and `_dmarc.TXT` records respectively:
 
 ### The `domains.list` / fallback pattern
 
-On startup, `loadDomainList()` tries `fetch('./domains.list')`. If the file is present and non-empty, it loads those domains and also seeds SSL expiry from `domains.json` (if available). If not (static host, local file, 404), it silently falls back to the built-in top-30 list. Custom domains added via the UI are pushed directly into the live DOMAINS array with a `fullScan=true` flag, triggering a full NS/MX/TXT/DMARC check immediately.
+On startup, `loadDomainList()` tries `fetch('./domains.list')`. If the file is present and non-empty, it loads those domains and also seeds SSL expiry from `domains.json` (if available). If not (static host, local file, 404), it silently falls back to the built-in top-50 list. Custom domains added via the UI are pushed directly into the live DOMAINS array with a `fullScan=true` flag, triggering a full NS/MX/TXT/DMARC check immediately.
 
 ### Config persistence layer (`config-write.php` + `ase_config.json`)
 
@@ -278,6 +278,11 @@ The skeleton → progressive fill is intentional UX: the user sees their domains
 ## 📝 Changelog
 
 > Full changelog: **[CHANGELOG.md](./CHANGELOG.md)**
+
+### 🔖 v2.2.0 — 2026-03-22
+- 🌍 **feat:** Built-in fallback list expanded from top-30 to **top-50** world's most-visited domains (Zoom, Stripe, Shopify, Notion, Figma, Vercel, Slack, Airbnb, Uber, Adobe, Salesforce, Paypal, Dropbox, Tesla, Atlassian, HubSpot, eBay, WordPress, Twilio, Twitter)
+- 📄 **fix:** `domains.list` updated to top-50 world sites — no longer contains personal domains
+- 🐛 **fix:** All "top-30" references updated to "top-50" across all files
 
 ### 🔖 v2.1.1 — 2026-03-22
 - 🐛 **fix:** All GitHub repo URLs in the UI now point to `paulfxyz/the-all-seeing-eye` (footer, help modal were using `your-org` placeholder)

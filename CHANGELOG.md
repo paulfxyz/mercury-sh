@@ -10,6 +10,69 @@ and adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## 🔖 [2.2.0] — 2026-03-22
+
+### 🌍 Top-50 World Domains · Fallback List Expanded
+
+---
+
+#### Built-in list: top-30 → top-50
+
+The built-in fallback list (used when `domains.list` is absent or unreachable) has been expanded from 30 to **50 of the world's most-visited domains**, based on Similarweb / Cloudflare Radar 2025 rankings.
+
+**20 new domains added (ranks 31–50):**
+
+| Rank | Domain | Category |
+|---|---|---|
+| 31 | zoom.us | Communications |
+| 32 | salesforce.com | SaaS/Product |
+| 33 | paypal.com | Finance |
+| 34 | ebay.com | Shopping |
+| 35 | wordpress.com | Content/CMS |
+| 36 | adobe.com | Product |
+| 37 | dropbox.com | Cloud Storage |
+| 38 | shopify.com | E-commerce |
+| 39 | tesla.com | Product |
+| 40 | airbnb.com | Travel |
+| 41 | uber.com | Travel |
+| 42 | twitter.com | Social |
+| 43 | twilio.com | Dev/API |
+| 44 | stripe.com | Finance |
+| 45 | notion.so | Productivity |
+| 46 | slack.com | Communications |
+| 47 | atlassian.com | Dev/Tools |
+| 48 | hubspot.com | SaaS/CRM |
+| 49 | figma.com | Design/Dev |
+| 50 | vercel.com | Dev/Cloud |
+
+Each new domain has full TOOLTIP_DATA entries (NS, MX, DMARC, SPF details for hover tooltips).
+
+#### domains.list updated
+
+`domains.list` (the default watchlist shipped in the repo) now contains the same top-50 world domains — no personal or private domains. Users deploying for their own infrastructure should replace this file with their own domain list.
+
+#### All "top-30" references updated to "top-50"
+
+- `app.js` — BUILTIN comment, loadDomainList() log, SSL expiry comment
+- `index.html` — How It Works modal, file header comment
+- `README.md` — fallback description, quick start comment
+- `CHANGELOG.md` — historical entries updated
+- `INSTALL.md` — fallback description
+
+### ✨ Added
+
+- 20 new BUILTIN entries (ranks 31–50): zoom.us through vercel.com
+- 20 new TOOLTIPS entries with NS/MX/DMARC/SPF detail for each new domain
+
+### 🔄 Changed
+
+- `app.js` — BUILTIN array: 30 → 50 entries
+- `app.js` — TOOLTIPS object: 30 → 50 entries
+- `domains.list` — replaced with top-50 world domains (no personal domains)
+- All files — "top-30" → "top-50" text updated throughout
+
+---
+
 ## 🔖 [2.1.1] — 2026-03-22
 
 ### 🐛 Hotfix — Correct GitHub Repository URLs
@@ -428,7 +491,7 @@ Theme toggle changes now call `saveConfig({ theme: 'light'|'dark' })` — so the
 
 #### SSL Enrichment for domains.list domains
 
-- **The problem:** Domains loaded from `domains.list` (custom user watchlists) get `sslExpiry: null` from `loadDomainList()` since they're not in the BUILTIN top-30. The `fetchSSLExpiry()` enrichment was gated on `!entry.sslExpiry`, which is correct — BUT `crt.sh` was timing out for many small/private domains. The user saw `—` in every SSL cell.
+- **The problem:** Domains loaded from `domains.list` (custom user watchlists) get `sslExpiry: null` from `loadDomainList()` since they're not in the BUILTIN top-50. The `fetchSSLExpiry()` enrichment was gated on `!entry.sslExpiry`, which is correct — BUT `crt.sh` was timing out for many small/private domains. The user saw `—` in every SSL cell.
 - **The fix:**
   - `_sslChecked` set added — tracks which domains have been queried this session so we don't re-fire crt.sh on every refresh cycle (was: every 3-minute auto-refresh re-queried every domain).
   - crt.sh timeout reduced from 8s → 5s.
@@ -541,7 +604,7 @@ Theme toggle changes now call `saveConfig({ theme: 'light'|'dark' })` — so the
 - **The problem:** SSL expiry dates were static — seeded from a one-time scan on 2026-03-21. They displayed correctly (days are computed live from today via `daysUntil()`), but for custom domains added at runtime, `sslExpiry` was always `null` → shown as `—` in the table.
 - **The fix:** A new `fetchSSLExpiry(domain)` function queries the [crt.sh](https://crt.sh) certificate transparency log API. It fetches all valid (non-expired) certs for the domain, picks the one expiring latest, extracts the `notAfter` date and detects whether it's a Let's Encrypt cert (CN matches `R3`, `R10`, `E5`, `E7`, etc.).
 - **Non-blocking by design:** The call is fired as a background `Promise` inside `checkDomain()` — it does not delay the DNS check or the table render. When the result arrives, it updates the domain entry and calls `renderTable()` so the SSL cell updates live.
-- **Only for custom domains:** Built-in top-30 entries have accurate seeded expiry dates from a real scan. The enrichment only fires for domains where `sslExpiry === null` (i.e. newly added custom domains).
+- **Only for custom domains:** Built-in top-50 entries have accurate seeded expiry dates from a real scan. The enrichment only fires for domains where `sslExpiry === null` (i.e. newly added custom domains).
 - **LE badge:** When the SSL issuer is Let's Encrypt, a green `LE` badge appears next to the days count in the SSL column.
 
 #### NS Provider Accuracy
@@ -652,8 +715,8 @@ Theme toggle changes now call `saveConfig({ theme: 'light'|'dark' })` — so the
 - **PIN gate** with SHA-256 hash — `onclick` attributes on numpad (no `addEventListener` / DOMContentLoaded issues)
 - **Stateless SHA-256** — recomputes primes each call; no `sha256.h` / `sha256.k` caching bug
 - **Dark / Light mode** toggle switch (CSS checkbox, no storage needed)
-- **`domains.list`** loader — plain-text file, one domain per line, `#` comments, fallback to BUILTIN top-30
-- **BUILTIN top-30** list — seeded with real scan data (NS, MX, DMARC, SSL expiry)
+- **`domains.list`** loader — plain-text file, one domain per line, `#` comments, fallback to BUILTIN top-50
+- **BUILTIN top-50** list — seeded with real scan data (NS, MX, DMARC, SSL expiry)
 - **Add Domain modal** — type domain, pick category, queue multiple, confirm → immediate DNS check
 - **Delete row button** — removes custom domains from the live list
 - **Export CSV** — timestamped download

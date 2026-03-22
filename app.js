@@ -14,7 +14,7 @@
    1. SHA-256       — pure-JS hash for PIN verification (no crypto.subtle)
    2. PIN gate      — 6-digit PIN check via inline onclick attributes
    3. Theme switch  — dark/light toggle via checkbox, no storage needed
-   4. Domain data   — BUILTIN top-30 list + TOOLTIPS for hover details
+   4. Domain data   — BUILTIN top-50 list + TOOLTIPS for hover details
    5. Live state    — domainState{} holds up/latency/history per domain
    6. DNS checks    — Cloudflare DoH API (cloudflare-dns.com/dns-query)
    7. Render        — renderTable() builds the tbody HTML from DOMAINS[]
@@ -286,7 +286,7 @@ document.addEventListener('keydown', function(e) {
 
 
 /* ────────────────────────────────────────────────────────────────
-   4. DOMAIN DATA — built-in top-30 seed + tooltip details
+   4. DOMAIN DATA — built-in top-50 seed + tooltip details
    When domains.list is present on the server, this is replaced.
    If the file is missing or unreadable, BUILTIN is used as fallback.
    ──────────────────────────────────────────────────────────────── */
@@ -321,6 +321,26 @@ var BUILTIN = [
   { rank:28, domain:'stackoverflow.com', cat:'dev',     sslExpiry:'2026-05-20', ns:'Cloudflare',mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
   { rank:29, domain:'nytimes.com',       cat:'news',    sslExpiry:'2026-09-13', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
   { rank:30, domain:'pinterest.com',     cat:'social',  sslExpiry:'2026-08-23', ns:'Domain',       mxType:'Own',        dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:31, domain:'zoom.us',            cat:'comm',    sslExpiry:'2026-11-12', ns:'AWS',       mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:32, domain:'salesforce.com',     cat:'product', sslExpiry:'2026-07-30', ns:'AWS',       mxType:'Microsoft',  dmarc:'reject',     spf:'~all', custom:false },
+  { rank:33, domain:'paypal.com',         cat:'finance', sslExpiry:'2026-10-14', ns:'Domain',    mxType:'Own',        dmarc:'reject',     spf:'~all', custom:false },
+  { rank:34, domain:'ebay.com',           cat:'shop',    sslExpiry:'2026-08-05', ns:'AWS',       mxType:'Own',        dmarc:'reject',     spf:'~all', custom:false },
+  { rank:35, domain:'wordpress.com',      cat:'content', sslExpiry:'2026-07-22', ns:'Domain',    mxType:'Own',        dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:36, domain:'adobe.com',          cat:'product', sslExpiry:'2026-10-09', ns:'Akamai',    mxType:'Own',        dmarc:'reject',     spf:'~all', custom:false },
+  { rank:37, domain:'dropbox.com',        cat:'cloud',   sslExpiry:'2026-09-18', ns:'AWS',       mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:38, domain:'shopify.com',        cat:'shop',    sslExpiry:'2026-06-25', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:39, domain:'tesla.com',          cat:'product', sslExpiry:'2026-11-03', ns:'AWS',       mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:40, domain:'airbnb.com',         cat:'travel',  sslExpiry:'2026-12-01', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:41, domain:'uber.com',           cat:'travel',  sslExpiry:'2026-08-19', ns:'AWS',       mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:42, domain:'twitter.com',        cat:'social',  sslExpiry:'2026-05-02', ns:'Domain',    mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:43, domain:'twilio.com',         cat:'dev',     sslExpiry:'2026-10-22', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:44, domain:'stripe.com',         cat:'finance', sslExpiry:'2026-07-08', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:45, domain:'notion.so',          cat:'product', sslExpiry:'2026-09-27', ns:'Cloudflare',mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:46, domain:'slack.com',          cat:'comm',    sslExpiry:'2026-11-30', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:47, domain:'atlassian.com',      cat:'dev',     sslExpiry:'2026-08-14', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:48, domain:'hubspot.com',        cat:'product', sslExpiry:'2026-10-05', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:49, domain:'figma.com',          cat:'dev',     sslExpiry:'2026-07-14', ns:'Cloudflare',mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:50, domain:'vercel.com',         cat:'dev',     sslExpiry:'2026-09-02', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
 ];
 
 
@@ -356,6 +376,26 @@ var TOOLTIPS = {
   'stackoverflow.com': { ns:'damian/dina.ns.cloudflare.com',               mx:'aspmx.l.google.com',                        dmarc:'v=DMARC1; p=reject; pct=100',                                spf:'v=spf1 include:_spf.google.com ~all' },
   'nytimes.com':       { ns:'ns-1652.awsdns-14.co.uk + 3 others',        mx:'aspmx.l.google.com',                        dmarc:'v=DMARC1; p=reject; rua=mailto:dmarc@nytimes.com',           spf:'v=spf1 include:_spf.google.com ~all' },
   'pinterest.com':     { ns:'ns1–5.pinterest.com',                         mx:'mx.pinterest.com',                          dmarc:'v=DMARC1; p=quarantine; pct=100',                            spf:'v=spf1 include:_spf.pinterest.com ~all' },
+  'zoom.us':           { ns:'ns-869.awsdns-44.net + 3 others',             mx:'aspmx.l.google.com',                        dmarc:'v=DMARC1; p=quarantine; pct=100',                            spf:'v=spf1 include:_spf.google.com ~all' },
+  'salesforce.com':    { ns:'ns1-04.azure-dns.com + 3 others',             mx:'salesforce-com.mail.protection.outlook.com',dmarc:'v=DMARC1; p=reject; rua=mailto:dmarc@salesforce.com',        spf:'v=spf1 include:_spf.salesforce.com ~all' },
+  'paypal.com':        { ns:'ns1.p57.dynect.net + 3 others',               mx:'mx1.paypalcorp.com',                        dmarc:'v=DMARC1; p=reject; rua=mailto:dmarc@paypal.com',            spf:'v=spf1 include:paypal.com ~all' },
+  'ebay.com':          { ns:'ns1.p28.dynect.net + 3 others',               mx:'mx1.ebay.com',                              dmarc:'v=DMARC1; p=reject; rua=mailto:dmarc@ebay.com',              spf:'v=spf1 include:ebay.com ~all' },
+  'wordpress.com':     { ns:'ns1–4.wordpress.com',                         mx:'mx1.wordpress.com',                         dmarc:'v=DMARC1; p=quarantine; rua=mailto:dmarc@wordpress.com',    spf:'v=spf1 include:_spf.wordpress.com ~all' },
+  'adobe.com':         { ns:'a9-64.akam.net + Akamai cluster',             mx:'adobe-com.mail.protection.outlook.com',     dmarc:'v=DMARC1; p=reject; rua=mailto:dmarc@adobe.com',             spf:'v=spf1 include:spf.protection.outlook.com ~all' },
+  'dropbox.com':       { ns:'ns1-204.awsdns-25.com + 3 others',            mx:'aspmx.l.google.com',                        dmarc:'v=DMARC1; p=quarantine; rua=mailto:dmarc@dropbox.com',       spf:'v=spf1 include:_spf.google.com ~all' },
+  'shopify.com':       { ns:'ns-cloud-d1.googledomains.com + 3 others',    mx:'aspmx.l.google.com',                        dmarc:'v=DMARC1; p=reject; rua=mailto:dmarc@shopify.com',           spf:'v=spf1 include:_spf.google.com ~all' },
+  'tesla.com':         { ns:'ns1-03.azure-dns.com + 3 others',             mx:'aspmx.l.google.com',                        dmarc:'v=DMARC1; p=quarantine; pct=100',                            spf:'v=spf1 include:_spf.google.com ~all' },
+  'airbnb.com':        { ns:'ns-1260.awsdns-29.org + 3 others',            mx:'aspmx.l.google.com',                        dmarc:'v=DMARC1; p=reject; rua=mailto:dmarc@airbnb.com',            spf:'v=spf1 include:_spf.google.com ~all' },
+  'uber.com':          { ns:'ns-1543.awsdns-00.co.uk + 3 others',          mx:'aspmx.l.google.com',                        dmarc:'v=DMARC1; p=quarantine; pct=100',                            spf:'v=spf1 include:_spf.google.com ~all' },
+  'twitter.com':       { ns:'b/c.r10.twtrdns.net',                         mx:'aspmx.l.google.com',                        dmarc:'v=DMARC1; p=reject; rua=mailto:dmarc@twitter.com',           spf:'v=spf1 include:_spf.google.com ~all' },
+  'twilio.com':        { ns:'ns-369.awsdns-46.com + 3 others',             mx:'aspmx.l.google.com',                        dmarc:'v=DMARC1; p=reject; rua=mailto:dmarc@twilio.com',            spf:'v=spf1 include:_spf.google.com ~all' },
+  'stripe.com':        { ns:'ns-cloud-b1.googledomains.com + 3 others',    mx:'aspmx.l.google.com',                        dmarc:'v=DMARC1; p=reject; rua=mailto:dmarc@stripe.com',            spf:'v=spf1 include:_spf.google.com ~all' },
+  'notion.so':         { ns:'noah.ns.cloudflare.com / linda.ns.cloudflare.com', mx:'aspmx.l.google.com',                   dmarc:'v=DMARC1; p=quarantine; pct=100',                            spf:'v=spf1 include:_spf.google.com ~all' },
+  'slack.com':         { ns:'ns-393.awsdns-49.com + 3 others',             mx:'aspmx.l.google.com',                        dmarc:'v=DMARC1; p=reject; rua=mailto:dmarc@slack.com',             spf:'v=spf1 include:_spf.google.com ~all' },
+  'atlassian.com':     { ns:'ns1-105.awsdns-10.org + 3 others',            mx:'aspmx.l.google.com',                        dmarc:'v=DMARC1; p=reject; rua=mailto:dmarc@atlassian.com',         spf:'v=spf1 include:_spf.google.com ~all' },
+  'hubspot.com':       { ns:'ns-cloud-e1.googledomains.com + 3 others',    mx:'aspmx.l.google.com',                        dmarc:'v=DMARC1; p=reject; rua=mailto:dmarc@hubspot.com',           spf:'v=spf1 include:_spf.google.com ~all' },
+  'figma.com':         { ns:'jake.ns.cloudflare.com / kara.ns.cloudflare.com', mx:'aspmx.l.google.com',                    dmarc:'v=DMARC1; p=reject; rua=mailto:dmarc@figma.com',             spf:'v=spf1 include:_spf.google.com ~all' },
+  'vercel.com':        { ns:'ns1-33.awsdns-04.com + 3 others',             mx:'aspmx.l.google.com',                        dmarc:'v=DMARC1; p=reject; rua=mailto:dmarc@vercel.com',            spf:'v=spf1 include:_spf.google.com ~all' },
 };
 
 
@@ -993,7 +1033,7 @@ function setRowLoading(domain, loading) {
  * Queries in parallel: A (uptime + latency), NS (provider),
  * MX (mail provider), TXT (SPF), and _dmarc TXT (DMARC policy).
  *
- * For built-in top-30 domains, NS/MX/DMARC/SPF are pre-seeded
+ * For built-in top-50 domains, NS/MX/DMARC/SPF are pre-seeded
  * from scan data. For custom domains, we look them up live.
  *
  * @param {string} domain — bare domain name e.g. "paulfleury.com"
@@ -1169,7 +1209,7 @@ async function checkDomain(domain, fullScan) {
    *  - We fire it as a non-blocking background Promise alongside DNS checks
    *  - If it resolves, we update the entry; if it times out, we keep '—'
    *
-   * The built-in top-30 list has accurate seeded expiry dates from a
+   * The built-in top-50 list has accurate seeded expiry dates from a
    * real scan — we only enrich custom domains (sslExpiry === null).
    * ──────────────────────────────────────────────────────────────── */
   /* SSL expiry is now checked in bulk via checkAll() → fetchAllSSLExpiry()
@@ -1447,7 +1487,7 @@ async function refreshRow(domain, btn) {
    9. DOMAINS.LIST LOADER
    Tries to fetch `domains.list` from the same directory.
    Lines starting with # are comments. Empty lines are ignored.
-   Falls back silently to BUILTIN top-30 if file is absent.
+   Falls back silently to BUILTIN top-50 if file is absent.
    ──────────────────────────────────────────────────────────────── */
 async function loadDomainList() {
   try {
@@ -1472,7 +1512,7 @@ async function loadDomainList() {
     console.log('[Eye] Loaded ' + DOMAINS.length + ' domains from domains.list');
   } catch(e) {
     DOMAINS = BUILTIN.slice();
-    console.log('[Eye] domains.list unavailable (' + e.message + ') — using built-in top-30');
+    console.log('[Eye] domains.list unavailable (' + e.message + ') — using built-in top-50');
   }
 
   /* Initialise empty state for all domains, reset SSL check cache */
