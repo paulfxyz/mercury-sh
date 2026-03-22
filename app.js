@@ -430,7 +430,7 @@ function renderTable() {
           'width="18" height="18" loading="lazy" alt="" onerror="this.style.opacity=0"></div>' +
         '<a class="domain-link" href="https://' + d.domain + '" target="_blank" rel="noopener">' + d.domain + '</a>' +
       '</div></td>' +
-      '<td><span class="cat-badge cat-' + (d.cat||'custom') + '">' + (CAT_LABELS[d.cat]||'Custom') + '</span></td>' +
+
       '<td><div class="status-cell">' +
         '<span class="status-dot ' + dotCls + '"></span>' +
         '<span class="status-label ' + statusCls + '">' + statusLabel + '</span>' +
@@ -524,7 +524,7 @@ function toggleFilter(type) {
 var _checkRunning   = false;   /* true while a full checkAll() is in progress */
 var _lastCheckAll   = 0;       /* timestamp of last full run */
 var _domainLastCheck = {};     /* timestamp of last per-domain check */
-var CHECK_ALL_MIN_GAP  = 10000;  /* ms — minimum gap between full refreshes */
+var CHECK_ALL_MIN_GAP  = 5000;   /* 5s minimum between full refreshes */  /* ms — minimum gap between full refreshes */
 var CHECK_ROW_MIN_GAP  = 5000;   /* ms — minimum gap for per-row refresh */
 var DNS_BATCH_SIZE     = 5;      /* domains per concurrent batch */
 var DNS_BATCH_DELAY    = 300;    /* ms between batches */
@@ -606,14 +606,26 @@ function detectNSProvider(nsRecords, domain) {
   /* Cloudflare check here so cloudflare.com's own NS isn't labelled "Domain" */
   if (all.includes('cloudflare'))                         return 'Cloudflare';
 
-  /* ── Registrar / branded NS that contains the domain name ──
-   * e.g. ns1.paulfleury.com → "Paulfleury", ns1.mysite.net → "Mysite"
-   * Only triggers when at least one NS host contains the domain apex.
+  /* ── Registrar / branded NS ──
+   * If the NS hostname contains the domain apex (e.g. ns1.paulfleury.com
+   * for paulfleury.com), label it with the capitalised domain name.
+   * Otherwise extract the registrar name from the NS host:
+   * e.g. ns1.registrar-servers.com → "Registrar-servers"
+   * This is more informative than the generic "Own" label.
    */
   var hasDomainInNS = hosts.some(function(host) { return host.includes(domainApex); });
   if (hasDomainInNS) return capitalise(domainApex.split('.')[0]);
 
-  return 'Own';
+  /* Last resort: extract the second-level domain from the first NS host
+   * and capitalise it — e.g. ns1.registrar-servers.com → "Registrar-servers" */
+  if (hosts.length > 0) {
+    var firstHost = hosts[0].replace(/\.$/, '');
+    var parts = firstHost.split('.');
+    if (parts.length >= 2) {
+      return capitalise(parts[parts.length - 2]);
+    }
+  }
+  return '—';
 }
 
 /** Extract apex domain — last two labels, e.g. "sub.example.co.uk" → "co.uk"
@@ -653,7 +665,18 @@ function detectMXProvider(mxRecords) {
   if (all.includes('zoho'))       return 'Zoho';
   if (all.includes('fastmail'))   return 'Fastmail';
   if (all.includes('icloud') || all.includes('apple.com')) return 'Apple';
-  return 'Own';
+
+  /* Extract registrar/provider name from the first MX hostname
+   * e.g. "10 mail.example.com." → "Example"
+   * Better than generic "Own" which tells the user nothing. */
+  if (mxRecords.length > 0) {
+    var raw  = (mxRecords[0].data || '').replace(/^\d+\s+/, '').replace(/\.$/, '');
+    var parts = raw.split('.');
+    if (parts.length >= 2) {
+      return capitalise(parts[parts.length - 2]);
+    }
+  }
+  return '—';
 }
 
 /**
@@ -976,44 +999,78 @@ async function checkAll() {
 }
 
 /**
- * REFRESH BUTTON — resets countdown and calls checkAll.
+ * REFRESH BUTTON — resets the auto-refresh countdown and fires checkAll.
  *
- * Visual feedback:
- *  - Button icon becomes a spinning ↺ while scan runs
- *  - Button text shows "Checking…"
- *  - Button is disabled to prevent double-click
- *  - On completion, button restores to original state
- *  - If rate-limited, button shows remaining wait time
+ * Rate-limit handling (CHECK_ALL_MIN_GAP = 5s):
+ *  - If a check is already running: button shows "Running…" and is disabled
+ *    until the current check finishes (not a fixed timeout).
+ *  - If the gap hasn't elapsed: button shows a live countdown ("Wait 3s…")
+ *    and AUTOMATICALLY fires checkAll when the gap expires — user doesn't
+ *    need to click again.
+ *
+ * Visual states:
+ *  - Clicking Refresh: button → spinning icon + "Checking…", disabled
+ *  - Rate-limited:     button → "⏳ Wait Ns…", disabled, counts down
+ *  - After countdown:  checkAll fires automatically
+ *  - After check:      button restored to normal
  */
 function triggerRefresh() {
   var now = Date.now();
   var btn = document.getElementById('btn-refresh');
 
-  /* Anti-spam: show wait feedback if too soon */
-  if (_checkRunning || now - _lastCheckAll < CHECK_ALL_MIN_GAP) {
+  /* Already running — show feedback but don't double-fire */
+  if (_checkRunning) {
     if (btn) {
-      var waitSec = Math.ceil((CHECK_ALL_MIN_GAP - (now - _lastCheckAll)) / 1000);
-      btn.innerHTML = _checkRunning
-        ? '<span style="display:inline-flex;align-items:center;gap:6px"><svg style="animation:spin 0.7s linear infinite" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>Running…</span>'
-        : '⏳ Wait ' + waitSec + 's';
+      var origHtml = btn.getAttribute('data-original') || btn.innerHTML;
+      btn.setAttribute('data-original', origHtml);
+      btn.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px">' +
+        '<svg style="animation:spin 0.7s linear infinite;flex-shrink:0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>' +
+        'Running…</span>';
       btn.disabled = true;
-      setTimeout(function() { setRefreshBtnNormal(); }, Math.max(2000, CHECK_ALL_MIN_GAP - (now - _lastCheckAll)));
+      /* Re-enable once check completes (polled) */
+      var poll = setInterval(function() {
+        if (!_checkRunning) { clearInterval(poll); setRefreshBtnNormal(); }
+      }, 200);
     }
     return;
   }
 
-  refreshTimer = 180;
-  var pf = document.getElementById('progress-fill');
-  if (pf) pf.style.width = '100%';
+  var remaining = CHECK_ALL_MIN_GAP - (now - _lastCheckAll);
 
-  /* Set button to "checking" state */
-  setRefreshBtnLoading();
+  /* Enough time has passed — fire immediately */
+  if (remaining <= 0) {
+    refreshTimer = 180;
+    var pf = document.getElementById('progress-fill');
+    if (pf) pf.style.width = '100%';
+    setRefreshBtnLoading();
+    checkAll().then(setRefreshBtnNormal);
+    return;
+  }
 
-  /* Run the checks — restore button when done */
-  checkAll().then(function() {
-    setRefreshBtnNormal();
-  });
+  /* Rate-limited — show countdown, then auto-fire when ready */
+  if (btn) {
+    btn.disabled = true;
+    /* Live countdown ticker */
+    var secs = Math.ceil(remaining / 1000);
+    btn.innerHTML = '⏳ ' + secs + 's…';
+    var ticker = setInterval(function() {
+      secs--;
+      if (secs > 0) {
+        btn.innerHTML = '⏳ ' + secs + 's…';
+      } else {
+        clearInterval(ticker);
+        btn.disabled = false;
+        /* Auto-fire the refresh after the countdown */
+        refreshTimer = 180;
+        var pf = document.getElementById('progress-fill');
+        if (pf) pf.style.width = '100%';
+        setRefreshBtnLoading();
+        checkAll().then(setRefreshBtnNormal);
+      }
+    }, 1000);
+  }
 }
+
 
 /** Set refresh button to spinning/loading state */
 function setRefreshBtnLoading() {

@@ -10,6 +10,48 @@ and adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## 🔖 [1.7.0] — 2026-03-22
+
+### 🐛 Refresh Fix + Category Removed + Better NS/MX Labels
+
+---
+
+#### Refresh Rate-Limit: Countdown Auto-Fires
+
+- **The problem:** Clicking Refresh within the rate-limit window showed "Wait 8s" and disabled the button. After 8 seconds, the button simply re-enabled — no refresh fired. User had to click a second time, which was confusing ("broken refresh").
+- **The fix:** The countdown now auto-fires `checkAll()` when it expires. "⏳ 8s…" ticks down to 0, then automatically starts the refresh — no second click needed. Rate-limit reduced from 10s → 5s.
+- **Running check:** If a check is already running, the button shows "Running…" and is disabled until the check completes (polled every 200ms), then restores normally.
+
+#### Category Column Removed
+
+- Category `<th>` removed from HTML table header.
+- Category `<td>` cell removed from `renderTable()` in `app.js`.
+- All domains from `domains.list` are treated uniformly — no category badge needed.
+
+#### NS/MX Fallback: Domain Name Instead of "Own"
+
+- **NS fallback:** Instead of `Own`, the function now extracts the second-level domain from the first NS hostname. e.g. `ns1.registrar-servers.com` → `"Registrar-servers"`. Gives the user actionable information.
+- **MX fallback:** Same approach — extracts the domain name from the first MX record. e.g. `mail.example.com` → `"Example"`.
+- Generic `"Own"` label eliminated from both `detectNSProvider()` and `detectMXProvider()`.
+
+#### Loading Animation — Shimmer
+
+- Added `@keyframes row-shimmer` — rows pulse between transparent and a faint accent-tinted background while checking, making the progressive scan visually obvious.
+- Combined with the existing 500ms minimum opacity dim.
+
+### 🔄 Changed
+
+- `CHECK_ALL_MIN_GAP` reduced from 10s → 5s
+- `triggerRefresh()` rewritten: countdown auto-fires, running-check poll added
+- HTML: `<th>Category</th>` removed
+- `renderTable()`: category `<td>` cell removed
+- `detectNSProvider()`: fallback returns hostname SLD instead of `"Own"`
+- `detectMXProvider()`: fallback returns MX hostname SLD instead of `"Own"`
+- `app.css`: `row-shimmer` keyframe animation added to `is-checking` rows
+- README: download instruction demoted from large block to bold text (no separate `<p>`)
+
+---
+
 ## 🔖 [1.6.0] — 2026-03-22
 
 ### 🐛 PIN Flow Fix + Standalone Removed + Docs Cleaned

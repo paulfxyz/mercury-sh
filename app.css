@@ -1180,8 +1180,17 @@
        is slower (600ms) so the "lighting up" effect feels satisfying.
     ═══════════════════════════════════════════════════════════ */
     tbody tr.is-checking {
-      opacity: 0.32;
-      background: transparent !important;
+      opacity: 0.35;
+    }
+
+    @keyframes row-shimmer {
+      0%   { background-color: transparent; }
+      50%  { background-color: color-mix(in srgb, var(--accent) 6%, transparent); }
+      100% { background-color: transparent; }
+    }
+
+    tbody tr.is-checking td {
+      animation: row-shimmer 1.4s ease-in-out infinite;
     }
 
     tbody tr.is-checking-done {

@@ -230,7 +230,7 @@ On startup, the app tries `fetch('./domains.list')`. If the file exists and is n
 
 👉 **[Download the ZIP](https://github.com/paulfxyz/the-all-seeing-eye/archive/refs/heads/main.zip)**
 
-Unzip, upload `index.html` + `app.css` + `app.js` + `domains.list` to your server. See [INSTALL.md](./INSTALL.md) for the full guide.
+**Unzip and upload `index.html` + `app.css` + `app.js` + `domains.list` to your server.** See [INSTALL.md](./INSTALL.md) for the full guide.
 ---
 
 ## 🤝 Contributing
