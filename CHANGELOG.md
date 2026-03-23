@@ -10,6 +10,75 @@ and adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## 🔖 [3.2.0] — 2026-03-23
+
+### 🔔 Enriched Email Notifications · Help Modal Docs · Dropdown Fix
+
+---
+
+#### Enriched email alerts
+
+Every downtime/recovery notification now includes a **full domain health digest**:
+
+| Field | What it shows |
+|---|---|
+| Domain | Linked to `https://domain` |
+| Status | DOWN (red) / UP (green) |
+| Latency | Round-trip ms at time of check |
+| SSL Expiry | Date + days remaining, colour-coded |
+| DMARC | Policy (reject/quarantine/none/missing), colour-coded |
+| SPF | Record value or missing |
+| Nameserver | Detected provider (Cloudflare, AWS, etc.) |
+| Mail Provider | Detected mail service |
+
+**Auto-detected health alerts** appear as coloured boxes below the table:
+
+| Condition | Severity | Alert text |
+|---|---|---|
+| SSL expired | 🚨 Critical | Certificate is expired — visitors see a security warning |
+| SSL ≤7 days | 🚨 Critical | Expires in N day(s) — renew immediately |
+| SSL ≤30 days | ⚠ Warning | Expires in N days — renewal recommended |
+| DMARC missing | ⚠ Warning | Domain vulnerable to email spoofing |
+| DMARC p=none | ⚠ Warning | Policy defined but not enforced |
+| SPF missing | ⚠ Warning | Increases chance of being marked as spam |
+
+**`notifyDowntime()` now passes the full snapshot:** SSL expiry date + calculated days remaining, DMARC, SPF, NS, MX are all read from the in-memory DOMAINS array and domainState, then forwarded to `notify.php`.
+
+**Test email** now shows a realistic demo snapshot (example domain with expiring SSL + warning alert) so users can see exactly what a real alert looks like.
+
+#### Help modal — Notifications documentation
+
+A new **🔔 Notifications** card added to the Help/How It Works modal (accessible via More ⋮ → Help). Explains:
+- What events trigger alerts (DOWN, recovery)
+- What each email contains (SSL, DMARC, SPF, etc.)
+- How to configure (More ⋮ → Notifications)
+- Which API is used (Resend, free tier 100/day)
+- Security model (AES-256-GCM encrypted key, never plaintext)
+- Rate limit (10 emails/hour)
+
+#### Dropdown modal click race condition fix
+
+All 4 dropdown buttons that open modals (Webhook, Change PIN, Notifications, Help) now call `event.stopPropagation()` before opening the modal. Without this, the bubbling click event reached the document-level outside-click listener, which attempted to close the menu — and in some timing scenarios, also interfered with the modal opening. Now the sequence is: `stopPropagation → closeHeaderMenu() → openModal()`.
+
+### ✨ Added
+
+- **`analyseHealth(array $extra)`** in `notify.php` — auto-detects SSL/DMARC/SPF issues, returns array of labelled alerts
+- **Health alerts section** in email HTML — colour-coded critical/warning boxes
+- **Full domain snapshot** forwarded from `notifyDowntime()` to `notify.php`
+- **SSL days calculation** in `notifyDowntime()` — derived from `entry.sslExpiry`
+- **Test email demo snapshot** — realistic example showing what a real alert looks like
+- **Help modal Notifications card** — explains feature, configuration, security model
+
+### 🔄 Changed
+
+- `notify.php` — `buildAlertEmail()`: accepts `$extra` array + `$isTest` flag; renders all health fields with colour coding; calls `analyseHealth()`
+- `notify.php` — test action: uses `buildAlertEmail(..., [], true)` with demo snapshot
+- `app.js` — `notifyDowntime()`: collects DOMAINS entry + ssl_days calculation, forwards full payload
+- `index.html` — Help modal: new Notifications card inserted before PIN Security
+- `index.html` — all dropdown modal buttons: `event.stopPropagation()` added
+
+---
+
 ## 🔖 [3.1.0] — 2026-03-23
 
 ### 🔔 Email Notifications · 📊 Cross-Device Uptime

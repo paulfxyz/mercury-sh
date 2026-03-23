@@ -2379,20 +2379,51 @@ function applyNotifyConfig(cfg) {
 
 /**
  * Fire a downtime or recovery notification.
+ * Enriches the payload with the full domain health snapshot:
+ * SSL expiry, DMARC, SPF, NS, MX — so the email shows a complete
+ * health digest, not just "domain is down".
+ *
  * Non-blocking — errors are caught silently.
  * Only fires if notifications are enabled and configured.
  *
- * @param {string} domain
- * @param {string} status   "DOWN" | "UP"
- * @param {number|null} latency
+ * @param {string}      domain
+ * @param {string}      status   "DOWN" | "UP"
+ * @param {number|null} latency  round-trip ms or null
  */
 async function notifyDowntime(domain, status, latency) {
   if (!_notifyConfig.enabled || !_notifyConfig.hasKey) return;
+
+  /* Collect full domain health snapshot from in-memory DOMAINS array.
+   * domainState holds live check results (up/latency/history).
+   * DOMAINS holds the enriched entry (sslExpiry, dmarc, spf, ns, mxType). */
+  var entry = DOMAINS.find(function(d) { return d.domain === domain; }) || {};
+  /* domainState[domain] is available for future enrichment (e.g. history) */
+
+  /* Calculate SSL days remaining */
+  var sslDays = null;
+  if (entry.sslExpiry) {
+    var expMs = new Date(entry.sslExpiry).getTime();
+    if (!isNaN(expMs)) {
+      sslDays = Math.ceil((expMs - Date.now()) / 86400000);
+    }
+  }
+
   try {
     await fetch('./notify.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ domain: domain, status: status, latency: latency || null, action: 'notify' })
+      body: JSON.stringify({
+        action:     'notify',
+        domain:     domain,
+        status:     status,
+        latency:    latency || null,
+        ssl_expiry: entry.sslExpiry  || null,
+        ssl_days:   sslDays,
+        dmarc:      entry.dmarc      || null,
+        spf:        entry.spf        || null,
+        ns:         entry.ns         || null,
+        mx:         entry.mxType     || null
+      })
     });
   } catch(e) { /* silent — notifications are best-effort */ }
 }

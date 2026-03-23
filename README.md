@@ -6,7 +6,7 @@
 ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
 ![PHP](https://img.shields.io/badge/PHP-777BB4?style=for-the-badge&logo=php&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-![Version](https://img.shields.io/badge/version-3.1.0-brightgreen?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-3.2.0-brightgreen?style=for-the-badge)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-no_server_needed-blue?style=for-the-badge)
 
 **Open-source uptime, DNS, SSL and latency monitor. One HTML file. Zero dependencies.**
@@ -50,7 +50,7 @@ A **self-hosted infrastructure dashboard** that monitors uptime, DNS records, SS
 - 🔐 **PIN-protected** dashboard (SHA-256 hashed — no plaintext stored)
 - 🌓 **Light / Dark mode** toggle (light by default)
 - 📱 **Mobile-first** — native numeric keyboard on touch devices, touch-optimised modals
-- 🔔 **Email alerts** — downtime + recovery notifications via Resend API (free tier)
+- 🔔 **Email alerts** — downtime + recovery with full health digest (SSL expiry, DMARC, SPF warnings) via Resend API
 - 📊 **Cross-device uptime** — server-side `uptime.json` shared across all browsers and devices
 - ⚡ **Progressive scan** — rows light up one batch at a time as results arrive
 - 🔄 **Per-row refresh** — re-scan any single domain with the ↺ button
@@ -183,104 +183,163 @@ Full setup guide: [INSTALL.md](./INSTALL.md)
 
 ## 🧠 How it works under the hood
 
+This section documents not just *what* the code does, but *why* certain decisions were made — including the bugs hit, the dead ends, and the non-obvious trade-offs.
+
+---
+
 ### DNS-over-HTTPS (DoH)
 
-Instead of raw DNS sockets (blocked in browsers), the app queries [Cloudflare's DoH API](https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/) over HTTPS — no CORS issues, no browser permissions, works everywhere. Each domain gets 5 parallel queries: `A`, `NS`, `MX`, `TXT`, and `_dmarc.TXT`. Results are parsed from Cloudflare's JSON response format (`application/dns-json`).
+Browsers block raw UDP/TCP DNS sockets entirely. The solution: [Cloudflare's DoH API](https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/) over HTTPS — no CORS issues, no browser permissions, works everywhere including sandboxed iframes.
 
-NS and MX answers are passed through pattern-matching provider detection: a lookup table maps known nameserver/mail hostnames to friendly labels (`Google`, `Cloudflare`, `SiteGround`, `ProtonMail`, `Amazon SES`…). For unknown providers, the second-level domain of the first NS/MX record is extracted and used as the label — more informative than the old `"Own"` fallback.
+Each domain fires 5 parallel queries: `A`, `NS`, `MX`, `TXT`, `_dmarc.TXT`. Results are parsed from Cloudflare's JSON format (`application/dns-json`). The `A` record response time is used as latency.
+
+**NS/MX provider detection:** A lookup table maps known nameserver hostnames to friendly labels (`Google`, `Cloudflare`, `SiteGround`, `ProtonMail`, `Amazon SES`…). For unknown providers, the second-level domain of the first NS/MX record is extracted — e.g. `ns1.registrar-servers.com` → `"Registrar-servers"`. Far more informative than the original `"Own"` fallback that showed for everything unrecognised.
+
+---
 
 ### Progressive batch scanning
 
-Instead of firing 30+ parallel DNS queries at once (which would look like a DoH flood and could trip firewalls), checks run in **batches of 5** with a 300ms pause between batches. After each batch the table re-renders — you see rows come alive progressively, one batch at a time. Total time for 34 domains: ~3–4 seconds.
+**The challenge:** Firing 50 parallel DNS queries in one burst looks like a DoH flood — it can trigger Cloudflare rate limiting and produce inconsistent results due to browser connection limits.
 
-Batch size and delay are configurable constants (`DNS_BATCH_SIZE`, `DNS_BATCH_DELAY`).
+**The fix:** Checks run in **batches of 5** (`DNS_BATCH_SIZE`) with a 300ms pause (`DNS_BATCH_DELAY`) between each batch. After each batch the table re-renders — you see rows light up progressively. Total time for 50 domains: ~4–5 seconds. Configurable via constants in `app.js`.
+
+---
 
 ### SSL certificate checking — three-tier strategy
 
-The browser cannot open raw TLS sockets, so SSL expiry data comes from up to three sources, tried in priority order:
+The browser cannot open raw TLS sockets (`stream_socket_client` is PHP-only). SSL expiry data comes from three sources tried in priority order:
 
-1. **`ssl-check.php?domains=dom1,dom2,...` (batch, same-origin PHP)** — `fetchAllSSLExpiry()` sends a single batch request after all DNS checks complete. PHP calls `stream_socket_client()` per domain to open a real TLS handshake, reads the certificate with `openssl_x509_parse()`, and returns a JSON array. One HTTP round-trip for up to 50 domains. Fast (~50ms/domain server-side, sequential).
+1. **`ssl-check.php?domains=d1,d2,...` (batch PHP, same-origin)** — `fetchAllSSLExpiry()` sends a single request after all DNS checks complete. PHP opens a real TLS handshake per domain, reads the cert with `openssl_x509_parse()`, and returns a JSON array. One HTTP round-trip for up to 50 domains (~50ms/domain server-side).
 
-2. **`crt.sh` per-domain (certificate transparency log lookup)** — fallback for static hosts where no PHP is available. Can time out or have gaps for low-traffic/private domains.
+2. **`crt.sh` per-domain (certificate transparency logs)** — public API, free, CORS-enabled. Fallback for static hosts without PHP. **Known issue:** crt.sh can time out or have gaps for low-traffic or private domains — this was a major pain point that drove the `ssl-check.php` implementation.
 
-3. **`domains.json` (written by server-side cron)** — seeded at page load from `update-stats.php` output. Gives instant SSL data on first render before any live checks run.
+3. **`domains.json` (written by PHP cron)** — seeded at page load from `update-stats.php` output. Gives instant SSL data on first render.
 
-If none of the above returns data, the SSL cell shows `—`.
+If none returns data, the SSL cell shows `—`. This is expected on first load on a fresh static host.
 
-### Uptime persistence — cookie-based history
+---
 
-Uptime data is stored in a browser cookie (`ase_uptime`, JSON-encoded, 1-year TTL). This was chosen over `localStorage` because localStorage is blocked in sandboxed iframes.
+### Uptime persistence — server-side + cookie fallback
 
-On every `checkDomain()` result, `uptimeRecord(domain, isUp)` increments the domain's `checks` and `ups` counters and records the last-down timestamp if the domain is unreachable. `uptimeSave()` serialises the entire map back to the cookie after each full scan.
+**v1–v2 approach (cookie only):** Uptime data lived in a `ase_uptime` browser cookie — isolated per device, lost on cookie clear or incognito, capped at 4KB. A separate device had zero history.
 
-On hover of the **STATUS** column, `uptimeTooltipHTML()` renders a tooltip showing:
-- Uptime percentage (1 decimal place)
-- Total checks run
-- Days monitored since first check
-- Last recorded downtime date
+**v3.1+ approach:** `uptime-write.php` accumulates history in `uptime.json` server-side. Every check from every browser/device/cron contributes to one authoritative record. `uptimeRecord()` tracks a per-cycle delta (`_uptimeDelta`), then `uptimeSave()` POSTs only changed domains to the server — efficient even with 50 domains.
 
-Cookie size is auto-trimmed to the 40 most-checked domains if it approaches 4KB.
+**Why not localStorage?** Blocked in sandboxed iframes (Perplexity Computer preview). Cookies work in all contexts. The cookie is still written as a fallback for static hosts.
+
+On hover of the **STATUS** column, `uptimeTooltipHTML()` renders: uptime %, total checks, days monitored, last downtime date.
+
+---
+
+### Email notifications — security design
+
+**The challenge:** Storing a third-party API key (Resend) securely on a shared hosting server where `config.php` files are routinely exposed.
+
+**The solution:** AES-256-GCM encryption with a server-side secret key.
+
+1. User enters API key in the browser → sent (HTTPS) to `config-write.php`
+2. `config-write.php` generates `notify_secret.key` on first use (256-bit random, `chmod 0600`)
+3. Key is encrypted: `AES-256-GCM(plaintext, SHA-256(secret), random_IV)` → base64-encoded blob stored in `ase_config.json`
+4. `notify.php` reads the secret from disk, decrypts on-the-fly, never stores plaintext
+5. `.htaccess` blocks direct HTTP access to `ase_config.json`, `notify_secret.key`, `notify_rate.json`
+
+**What's in every alert email:**
+- Domain, status (DOWN/UP), latency
+- SSL expiry date + days remaining (colour-coded green/amber/red)
+- DMARC policy with status
+- SPF record
+- Nameserver and mail provider
+- Auto-detected health warnings (SSL expiring, DMARC missing/unenforced, SPF missing)
+
+**Rate limiting:** Max 10 emails/hour tracked in `notify_rate.json`. Prevents alert storms from flapping domains. Only state *transitions* (UP→DOWN, DOWN→UP) trigger alerts — not repeated failures.
+
+---
 
 ### The SHA-256 caching bug (and fix)
 
-The original SHA-256 implementation cached its prime tables on `sha256.h` and `sha256.k` as properties of the function object. This works on the first call but corrupts on subsequent calls — producing wrong hashes and breaking PIN verification. The fix: a fully **stateless implementation** that recomputes primes fresh on every call. No mutation, no side effects. This is why PIN verification is reliable across multiple attempts.
+**The bug:** The original SHA-256 implementation cached its prime tables as properties on the function object (`sha256.h`, `sha256.k`). This worked on the first call but produced wrong hashes on subsequent calls — making PIN verification fail randomly after the first correct login.
+
+**The fix:** A fully **stateless implementation** that recomputes all primes fresh on every call. No mutation, no side effects. This is counterintuitive (seems wasteful) but SHA-256 is fast enough that the overhead is negligible, and the correctness is guaranteed.
+
+---
 
 ### Why `onclick` instead of `addEventListener`
 
-The PIN numpad uses `onclick="pinDigit('1')"` directly in the HTML rather than `addEventListener`. The reason: when deployed in a sandboxed iframe (as in Perplexity Computer's preview), `DOMContentLoaded` fires before the script is fully evaluated — meaning listeners attached in that callback silently never execute. Inline `onclick` attributes bypass this entirely — one click, one call, always.
+**The bug:** PIN numpad buttons attached via `addEventListener('click', ...)` inside `DOMContentLoaded` silently failed in sandboxed iframes — `DOMContentLoaded` fired before the script was fully evaluated.
 
-A related trap: binding the same event via *multiple* event types (e.g. both `click` and `touchstart`) causes double-firing on mobile. The PIN numpad uses only `click` (plus keyboard `keydown` handlers) to avoid this.
+**The fix:** Inline `onclick="pinDigit('1')"` attributes. These are evaluated at call time, not at parse time — always reliable regardless of execution context.
+
+**Related trap:** Binding both `click` and `touchstart` on the same element causes double-firing on mobile (both events fire on a single tap). The PIN numpad uses `click` only, with a separate `keydown` handler for keyboard — one path per input method.
+
+---
 
 ### Header dropdown — CSS stacking context escape
 
-The sticky header (`position: sticky; z-index: 100`) creates its own CSS stacking context. Child elements, no matter how high their own `z-index`, cannot visually exceed the header's `z-index: 100` from the root document's perspective. This means a dropdown rendered inside the header would be covered by any root-level overlay above z-index 100.
+**The bug:** The header has `position: sticky; z-index: 100`, which creates its own stacking context. Dropdown menus inside it are visually capped at the header's z-index in the root stacking context — even if the menu itself has `z-index: 9999`. The backdrop overlay (appended to `<body>`) was blocking all clicks on the menu items.
 
-The fix: the dropdown uses `position: fixed` (which is positioned relative to the viewport, not the header's containing block) with `z-index: 9999`. `toggleHeaderMenu()` reads the toggle button's position via `getBoundingClientRect()` and sets `top` / `right` dynamically — so the menu always appears correctly aligned regardless of scroll position. Outside-click detection uses a `document.addEventListener('click', ...)` handler rather than a backdrop `<div>` (which would itself be trapped in the same stacking context problem).
+**The fix:** The dropdown menu uses `position: fixed` — positioned relative to the viewport, escaping the header's stacking context entirely. `toggleHeaderMenu()` calculates the menu position via `getBoundingClientRect()` on every open. Outside-click detection uses `document.addEventListener('click')` checking `dropdown.contains(e.target)` — no backdrop div needed.
 
-### Rate limiting
+**Related bug (v3.x):** Opening a modal from a dropdown item caused a race: the click bubbled to the document listener, which called `closeHeaderMenu()` — and in some timing scenarios reached the now-visible modal overlay, closing it immediately. Fix: `event.stopPropagation()` on all dropdown item buttons.
 
-Two guards prevent accidental DNS flood:
-- **Global:** `_checkRunning` flag blocks overlapping full scans; `CHECK_ALL_MIN_GAP` (5s) prevents re-runs fired too close together
-- **Per-row:** `_domainLastCheck[domain]` timestamps every per-row refresh; `CHECK_ROW_MIN_GAP` (5s) prevents hammering a single domain
-- **Auto-refresh countdown:** When the 3-minute countdown expires it auto-fires `checkAll()` — no second click needed. The button HTML is snapshotted as `REFRESH_BTN_ORIGINAL` at page load to guarantee correct restoration after each countdown cycle.
+---
 
-### SPF / DMARC interpretation
+### Mobile PIN — native numeric keyboard
 
-SPF and DMARC are parsed from `TXT` and `_dmarc.TXT` records respectively:
+**The problem:** The custom numpad triggered double-tap zoom on iOS (300ms delay + zoom on rapid taps). `touch-action: manipulation` helps but doesn't fully solve it.
 
-- **SPF:** The `all` mechanism qualifier is extracted (`~all`, `-all`, `+all`, `?all`). Any present and parseable SPF record renders as ✓ green — both `~all` (soft fail, industry standard) and `-all` (hard fail, stricter) are equally valid. The full raw SPF record is shown in the hover tooltip. Only a missing SPF renders red.
-- **DMARC:** The `p=` tag is extracted (`reject`, `quarantine`, `none`). `reject` and `quarantine` render green; `none` renders yellow (policy defined but no enforcement). Missing DMARC renders red with `✕ missing`.
+**The solution:** On touch devices (`navigator.maxTouchPoints > 0`), the numpad is hidden and replaced with `<input type="password" inputmode="numeric">`. This triggers the system numeric keyboard with no zoom issues. Font size is 28px (above the iOS 16px zoom threshold). The numpad is preserved for non-touch contexts (desktops, sandboxed iframes where `focus()` may not work).
 
-### The `domains.list` / fallback pattern
+---
 
-On startup, `loadDomainList()` tries `fetch('./domains.list')`. If the file is present and non-empty, it loads those domains and also seeds SSL expiry from `domains.json` (if available). If not (static host, local file, 404), it silently falls back to the built-in top-50 list. Custom domains added via the UI are pushed directly into the live DOMAINS array with a `fullScan=true` flag, triggering a full NS/MX/TXT/DMARC check immediately.
+### Modal architecture — the `overflow:hidden` + `position:sticky` conflict
+
+**The bug (v2.3.x):** Modal close buttons used `position: sticky; top: 0` on the title bar. This silently did nothing because the parent card had `overflow: hidden` — **a CSS rule: `overflow: hidden` on any ancestor disables `position: sticky` on all descendants**.
+
+**The fix (v3.0+):** The modal card is a flex column (`display: flex; flex-direction: column; max-height: 90vh`). The header and footer are `flex-shrink: 0` — they never collapse. Only the body is `overflow-y: auto`. No `overflow: hidden` anywhere. The header and footer are structurally pinned without any CSS tricks.
+
+---
 
 ### Config persistence layer (`config-write.php` + `ase_config.json`)
 
-A PHP endpoint (`config-write.php`) provides server-side persistence for settings that must survive across browsers and sessions. On every page load, `loadConfig()` runs before the PIN overlay becomes interactive:
+Settings that must survive across browsers and devices (PIN hash, theme, notification config) are stored in `ase_config.json` via `config-write.php`. On every page load, `loadConfig()` runs *before* the PIN overlay is interactive:
 
-1. Reads `ase_pin` cookie → overrides `PIN_HASH` in memory immediately (instant, no network)
-2. Fetches `config-write.php` (no-cache) → if `pin_hash` present and valid, overrides again (authoritative — works across all devices)
-3. Applies `theme` preference if stored
+1. Reads `ase_pin` cookie → applies PIN hash immediately (no network latency)
+2. Fetches `config-write.php` (no-cache) → authoritative server override
+3. Applies theme + notification config
 
-When a PIN change is confirmed, `spPersistHash()` calls `_writePinCookie()` (instant) and `saveConfig({ pin_hash })` (server). Both succeed on a PHP host; only the cookie works on static hosts.
+**Three-tier PIN persistence:**
+| Tier | Where | Scope |
+|---|---|---|
+| 1 | `ase_config.json` (server) | All browsers + devices |
+| 2 | `ase_pin` cookie | Current browser |
+| 3 | Hardcoded in `index.html` | Deployment default |
 
-`ase_config.json` is written atomically (temp file + `rename()`) with `LOCK_EX` file locking to prevent corruption. All inputs are validated server-side (hash format, theme enum, RFC-1123 domain names).
+Writes are atomic: temp file + `rename()` + `LOCK_EX` flock to prevent corruption under concurrent requests.
+
+---
 
 ### Auto-scan on login
 
-`initDashboard()` always fires `checkAll()` automatically after unlock — no Refresh button click required. The sequence:
-1. `loadDomainList()` → fetch domains.list + seed SSL from domains.json
-2. `renderTable()` → render skeleton immediately (domain names visible right away)
-3. `checkAll()` → fire DNS+SSL checks in batches; table populates progressively
+`initDashboard()` always fires `checkAll()` automatically after unlock. The sequence:
+1. `loadConfig()` → PIN hash, theme, uptime data, notification config
+2. `loadDomainList()` → `domains.list` + seed SSL from `domains.json`
+3. `renderTable()` → skeleton renders immediately (domain names visible)
+4. `checkAll()` → DNS+SSL in batches; table fills progressively
 
-The skeleton → progressive fill is intentional UX: the user sees their domains listed instantly, then watches them come alive as checks resolve batch by batch.
+The skeleton-first approach is intentional: users see their domains listed instantly, then watch them come alive batch by batch — far better than a blank screen during the ~4s scan.
 
 ---
 
 ## 📝 Changelog
 
 > Full changelog: **[CHANGELOG.md](./CHANGELOG.md)**
+
+### 🔖 v3.2.0 — 2026-03-23
+- 🔔 **feat:** Enriched email alerts — SSL expiry countdown, DMARC/SPF health checks, NS + MX in every notification
+- ⚠️ **feat:** Auto-detected health warnings in emails — SSL expiring ≤30d (warning) / ≤7d (critical), DMARC missing/unenforced, SPF missing
+- 🧪 **feat:** Test email shows realistic demo snapshot with example alerts
+- 📖 **feat:** Help modal updated with Notifications section
+- 🐛 **fix:** `stopPropagation` on all dropdown modal buttons (click race condition)
 
 ### 🔖 v3.1.0 — 2026-03-23
 - 🔔 **feat:** Email notifications — Resend API integration; downtime + recovery alerts; API key encrypted AES-256-GCM server-side

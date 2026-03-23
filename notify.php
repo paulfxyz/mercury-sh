@@ -2,34 +2,32 @@
 /**
  * notify.php — All-Seeing-Eye email notification sender
  *
- * Sends downtime alert emails via the Resend API (https://resend.com).
- * Called by the browser JS when a domain goes DOWN during a live check,
- * and by update-stats.php during scheduled cron checks.
+ * Sends downtime alert and health digest emails via the Resend API.
+ * Called by the browser JS on UP↔DOWN transitions and by update-stats.php.
  *
- * The Resend API key is stored AES-256-GCM encrypted in ase_config.json.
- * The encryption key is derived from a server-side secret stored in
- * notify_secret.key (auto-generated on first use, never exposed via HTTP).
- *
- * Endpoints:
- *   POST notify.php   → send a downtime notification
- *   POST notify.php   → with {"action":"test"} → send a test email
- *
- * POST body (JSON):
+ * POST body (JSON) — downtime/recovery:
  * {
- *   "domain":  "example.com",   // domain that went down
- *   "status":  "DOWN",          // "DOWN" or "UP" (recovery)
- *   "latency": null,            // ms or null
- *   "action":  "notify"         // "notify" | "test"
+ *   "action":     "notify",
+ *   "domain":     "example.com",
+ *   "status":     "DOWN" | "UP",
+ *   "latency":    null | 42,
+ *   "ssl_expiry": "2026-08-15" | null,    // ISO date or null
+ *   "ssl_days":   42 | null,              // days until expiry or null
+ *   "dmarc":      "reject"|"quarantine"|"none"|"missing",
+ *   "spf":        "~all"|"-all"|null,     // null = missing
+ *   "ns":         "Cloudflare",
+ *   "mx":         "Google"
  * }
  *
- * Security:
- *   - API key never stored or transmitted in plaintext from this endpoint
- *   - AES-256-GCM authenticated encryption (tamper-proof)
- *   - Server-side secret derived key — not guessable from config alone
- *   - Rate limit: max 10 emails per hour (tracked via rate_limit.json)
- *   - notify_secret.key protected from web access via .htaccess
+ * POST body (JSON) — test email:
+ * { "action": "test" }
  *
- * @version 3.1.0
+ * Security:
+ *   - API key AES-256-GCM decrypted from ase_config.json + notify_secret.key
+ *   - Rate limit: 10 emails/hour
+ *   - All inputs sanitised before rendering in HTML
+ *
+ * @version 3.2.0
  * @author  Paul Fleury / Perplexity Computer
  */
 
@@ -50,40 +48,17 @@ function readConfig() {
     return is_array($raw) ? $raw : [];
 }
 
-/**
- * Get or create the server-side secret key.
- * This key is used to derive the AES encryption key.
- * Never exposed via HTTP — protected by .htaccess.
- */
 function getOrCreateSecret() {
-    if (file_exists(SECRET_FILE)) {
-        return trim(file_get_contents(SECRET_FILE));
-    }
-    /* Generate a 64-char hex secret (256 bits) */
+    if (file_exists(SECRET_FILE)) return trim(file_get_contents(SECRET_FILE));
     $secret = bin2hex(random_bytes(32));
     file_put_contents(SECRET_FILE, $secret);
     chmod(SECRET_FILE, 0600);
     return $secret;
 }
 
-/**
- * Encrypt a plaintext string using AES-256-GCM.
- * Returns base64-encoded: IV (12 bytes) + tag (16 bytes) + ciphertext.
- */
-function encryptApiKey(string $plaintext, string $secret): string {
-    $key    = hash('sha256', $secret, true); /* 32-byte key from secret */
-    $iv     = random_bytes(12);              /* 96-bit GCM IV */
-    $cipher = openssl_encrypt($plaintext, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
-    return base64_encode($iv . $tag . $cipher);
-}
-
-/**
- * Decrypt a base64-encoded AES-256-GCM blob.
- * Returns plaintext on success, false on failure.
- */
 function decryptApiKey(string $encoded, string $secret) {
-    $raw    = base64_decode($encoded);
-    if (strlen($raw) < 29) return false;   /* 12 IV + 16 tag + at least 1 char */
+    $raw = base64_decode($encoded);
+    if (strlen($raw) < 29) return false;
     $key    = hash('sha256', $secret, true);
     $iv     = substr($raw, 0, 12);
     $tag    = substr($raw, 12, 16);
@@ -91,113 +66,260 @@ function decryptApiKey(string $encoded, string $secret) {
     return openssl_decrypt($cipher, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
 }
 
-/**
- * Check and enforce rate limit (max 10 emails/hour).
- * Returns true if allowed, false if rate-limited.
- */
 function checkRateLimit(): bool {
-    $data  = [];
-    $now   = time();
+    $data   = [];
+    $now    = time();
     $cutoff = $now - 3600;
-
     if (file_exists(RATE_LIMIT_FILE)) {
         $raw = json_decode(file_get_contents(RATE_LIMIT_FILE), true);
         if (is_array($raw)) $data = $raw;
     }
-
-    /* Remove timestamps older than 1 hour */
     $data = array_filter($data, function($ts) use ($cutoff) { return $ts > $cutoff; });
-
-    if (count($data) >= MAX_EMAILS_PER_HOUR) {
-        return false;
-    }
-
+    if (count($data) >= MAX_EMAILS_PER_HOUR) return false;
     $data[] = $now;
     file_put_contents(RATE_LIMIT_FILE, json_encode(array_values($data)));
     return true;
 }
 
-/**
- * Send email via Resend API.
- * Returns ['ok' => true] or ['error' => 'message'].
- */
 function sendViaResend(string $apiKey, string $from, string $to, string $subject, string $html): array {
-    $payload = json_encode([
-        'from'    => $from,
-        'to'      => [$to],
-        'subject' => $subject,
-        'html'    => $html
-    ]);
-
-    $ctx = stream_context_create([
-        'http' => [
-            'method'  => 'POST',
-            'header'  => implode("\r\n", [
-                'Content-Type: application/json',
-                'Authorization: Bearer ' . $apiKey,
-                'Content-Length: ' . strlen($payload)
-            ]),
-            'content' => $payload,
-            'timeout' => 10,
-            'ignore_errors' => true
-        ]
-    ]);
-
+    $payload = json_encode(['from' => $from, 'to' => [$to], 'subject' => $subject, 'html' => $html]);
+    $ctx = stream_context_create(['http' => [
+        'method'  => 'POST',
+        'header'  => "Content-Type: application/json\r\nAuthorization: Bearer {$apiKey}\r\nContent-Length: " . strlen($payload),
+        'content' => $payload,
+        'timeout' => 10,
+        'ignore_errors' => true
+    ]]);
     $response = @file_get_contents('https://api.resend.com/emails', false, $ctx);
     $httpCode = 0;
-
     if (isset($http_response_header)) {
         foreach ($http_response_header as $h) {
-            if (preg_match('/HTTP\/[\d.]+ (\d+)/', $h, $m)) {
-                $httpCode = intval($m[1]);
-            }
+            if (preg_match('/HTTP\/[\d.]+ (\d+)/', $h, $m)) $httpCode = intval($m[1]);
         }
     }
-
     if ($response === false || ($httpCode !== 200 && $httpCode !== 201)) {
         $err = $response ? (json_decode($response, true)['message'] ?? $response) : 'Network error';
-        return ['error' => 'Resend API error (' . $httpCode . '): ' . $err];
+        return ['error' => "Resend API ({$httpCode}): {$err}"];
     }
-
     return ['ok' => true, 'id' => json_decode($response, true)['id'] ?? null];
 }
 
+/** Sanitise string for safe HTML output */
+function h($val): string {
+    return htmlspecialchars((string)($val ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
 /**
- * Build the downtime alert HTML email body.
+ * Analyse domain health and return an array of alert items.
+ * Each item: [ 'level' => 'warning'|'critical', 'label' => '...', 'detail' => '...' ]
  */
-function buildAlertEmail(string $domain, string $status, $latency): string {
+function analyseHealth(array $p): array {
+    $alerts = [];
+
+    /* SSL expiry */
+    $sslDays = isset($p['ssl_days']) && $p['ssl_days'] !== null ? intval($p['ssl_days']) : null;
+    if ($sslDays !== null) {
+        if ($sslDays <= 0) {
+            $alerts[] = ['level' => 'critical', 'label' => 'SSL Expired',
+                         'detail' => 'Certificate is expired — visitors see a security warning'];
+        } elseif ($sslDays <= 7) {
+            $alerts[] = ['level' => 'critical', 'label' => 'SSL Expiring Very Soon',
+                         'detail' => "Expires in {$sslDays} day" . ($sslDays === 1 ? '' : 's') . " — renew immediately"];
+        } elseif ($sslDays <= 30) {
+            $alerts[] = ['level' => 'warning', 'label' => 'SSL Expiring Soon',
+                         'detail' => "Expires in {$sslDays} days — renewal recommended"];
+        }
+    }
+
+    /* DMARC */
+    $dmarc = strtolower(trim($p['dmarc'] ?? ''));
+    if ($dmarc === 'missing' || $dmarc === '') {
+        $alerts[] = ['level' => 'warning', 'label' => 'DMARC Missing',
+                     'detail' => 'No DMARC policy — domain is vulnerable to email spoofing'];
+    } elseif ($dmarc === 'none') {
+        $alerts[] = ['level' => 'warning', 'label' => 'DMARC Not Enforced',
+                     'detail' => 'p=none — policy defined but not enforced; consider p=quarantine or p=reject'];
+    }
+
+    /* SPF */
+    $spf = trim($p['spf'] ?? '');
+    if ($spf === '' || $spf === null) {
+        $alerts[] = ['level' => 'warning', 'label' => 'SPF Missing',
+                     'detail' => 'No SPF record — increases chance of being marked as spam'];
+    }
+
+    return $alerts;
+}
+
+/**
+ * Build the full alert/health digest HTML email.
+ *
+ * @param string   $domain
+ * @param string   $status    "DOWN" | "UP" | "TEST" | "HEALTH"
+ * @param array    $extra     All additional domain health fields
+ * @param bool     $isTest    True = test email layout
+ */
+function buildAlertEmail(string $domain, string $status, array $extra = [], bool $isTest = false): string {
     $isDown    = ($status === 'DOWN');
-    $color     = $isDown ? '#ef4444' : '#10b981';
-    $icon      = $isDown ? '🔴' : '🟢';
-    $title     = $isDown ? "🚨 Downtime Alert: {$domain}" : "✅ Recovery: {$domain} is back online";
-    $latStr    = ($latency !== null) ? "{$latency}ms" : 'N/A';
-    $timeStr   = date('Y-m-d H:i:s T');
+    $isUp      = ($status === 'UP');
+    $latency   = $extra['latency']   ?? null;
+    $sslExpiry = $extra['ssl_expiry'] ?? null;
+    $sslDays   = isset($extra['ssl_days']) && $extra['ssl_days'] !== null ? intval($extra['ssl_days']) : null;
+    $dmarc     = $extra['dmarc']     ?? null;
+    $spf       = $extra['spf']       ?? null;
+    $ns        = $extra['ns']        ?? null;
+    $mx        = $extra['mx']        ?? null;
+
+    /* Colour + messaging */
+    if ($isTest) {
+        $headerColor = '#8b5cf6';
+        $headerIcon  = '🧪';
+        $headerTitle = 'Test Notification — The All Seeing Eye';
+        $subTitle    = 'Your email notifications are configured correctly.';
+    } elseif ($isDown) {
+        $headerColor = '#ef4444';
+        $headerIcon  = '🔴';
+        $headerTitle = "Downtime Alert: {$domain}";
+        $subTitle    = 'This domain is currently unreachable.';
+    } else {
+        $headerColor = '#10b981';
+        $headerIcon  = '✅';
+        $headerTitle = "Recovered: {$domain}";
+        $subTitle    = 'This domain is back online.';
+    }
+
+    $timeStr  = date('D d M Y, H:i:s T');
+    $latStr   = $latency !== null ? "{$latency}ms" : '—';
+    $sslStr   = $sslExpiry ? h($sslExpiry) . ($sslDays !== null ? " ({$sslDays}d)" : '') : '—';
+    $dmarcStr = $dmarc ? h(ucfirst($dmarc)) : '—';
+    $spfStr   = $spf   ? h($spf)   : '—';
+    $nsStr    = $ns    ? h($ns)    : '—';
+    $mxStr    = $mx    ? h($mx)    : '—';
+
+    /* SSL days colour */
+    $sslColor = '#374151'; /* default neutral */
+    if ($sslDays !== null) {
+        if ($sslDays <= 7)  $sslColor = '#ef4444';
+        elseif ($sslDays <= 30) $sslColor = '#f59e0b';
+        else                    $sslColor = '#10b981';
+    }
+
+    /* DMARC colour */
+    $dmarcColor = '#374151';
+    if ($dmarc === 'reject')     $dmarcColor = '#10b981';
+    elseif ($dmarc === 'quarantine') $dmarcColor = '#f59e0b';
+    elseif ($dmarc === 'none' || $dmarc === 'missing' || !$dmarc) $dmarcColor = '#ef4444';
+
+    /* Health alerts */
+    $healthAlerts = analyseHealth($extra);
+
+    /* Build alerts HTML */
+    $alertsHtml = '';
+    if (!empty($healthAlerts)) {
+        $alertsHtml = '<div style="margin-top:20px">';
+        $alertsHtml .= '<div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;margin-bottom:10px">⚠ Health Alerts</div>';
+        foreach ($healthAlerts as $a) {
+            $bg    = $a['level'] === 'critical' ? '#fef2f2' : '#fffbeb';
+            $bc    = $a['level'] === 'critical' ? '#fecaca' : '#fde68a';
+            $lc    = $a['level'] === 'critical' ? '#dc2626' : '#d97706';
+            $icon  = $a['level'] === 'critical' ? '🚨' : '⚠️';
+            $alertsHtml .= "<div style=\"background:{$bg};border:1px solid {$bc};border-radius:8px;padding:10px 14px;margin-bottom:8px\">";
+            $alertsHtml .= "<div style=\"font-weight:700;font-size:13px;color:{$lc};margin-bottom:3px\">{$icon} " . h($a['label']) . "</div>";
+            $alertsHtml .= "<div style=\"font-size:12px;color:#374151\">" . h($a['detail']) . "</div>";
+            $alertsHtml .= "</div>";
+        }
+        $alertsHtml .= '</div>';
+    }
+
+    /* Test domain snapshot (realistic demo for test emails) */
+    $testSnapshot = '';
+    if ($isTest) {
+        $testSnapshot = '
+        <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:16px">
+          <div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;margin-bottom:12px">Example Notification</div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <tr><td style="padding:5px 0;color:#6b7280;width:110px">Domain</td><td style="padding:5px 0;font-weight:600;color:#111">yourdomain.com</td></tr>
+            <tr><td style="padding:5px 0;color:#6b7280">Event</td><td style="padding:5px 0;font-weight:700;color:#ef4444">🔴 DOWN</td></tr>
+            <tr><td style="padding:5px 0;color:#6b7280">SSL Expiry</td><td style="padding:5px 0;color:#f59e0b;font-weight:600">2026-04-15 (23d)</td></tr>
+            <tr><td style="padding:5px 0;color:#6b7280">DMARC</td><td style="padding:5px 0;color:#10b981">Reject ✓</td></tr>
+            <tr><td style="padding:5px 0;color:#6b7280">SPF</td><td style="padding:5px 0;color:#10b981">~all ✓</td></tr>
+          </table>
+          <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 12px;margin-top:10px;font-size:12px;color:#d97706">
+            <strong>⚠ SSL Expiring Soon</strong> — Expires in 23 days — renewal recommended
+          </div>
+        </div>';
+    }
 
     return <<<HTML
 <!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;margin:0;padding:24px">
-  <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);overflow:hidden">
-    <div style="background:{$color};padding:20px 24px">
-      <h1 style="margin:0;color:#fff;font-size:18px;font-weight:700">{$icon} {$title}</h1>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{$headerIcon} {$headerTitle}</title>
+</head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f3f4f6;margin:0;padding:24px 16px">
+  <div style="max-width:520px;margin:0 auto">
+
+    <!-- Header -->
+    <div style="background:{$headerColor};padding:24px;border-radius:12px 12px 0 0">
+      <h1 style="margin:0;color:#fff;font-size:20px;font-weight:800;letter-spacing:-.02em">{$headerIcon} {$headerTitle}</h1>
+      <p style="margin:6px 0 0;color:rgba(255,255,255,.85);font-size:14px">{$subTitle}</p>
     </div>
-    <div style="padding:24px">
-      <table style="width:100%;border-collapse:collapse;font-size:14px">
-        <tr><td style="padding:8px 0;color:#6b7280;width:120px">Domain</td>
-            <td style="padding:8px 0;font-weight:600;color:#111">{$domain}</td></tr>
-        <tr><td style="padding:8px 0;color:#6b7280">Status</td>
-            <td style="padding:8px 0;font-weight:700;color:{$color}">{$status}</td></tr>
-        <tr><td style="padding:8px 0;color:#6b7280">Latency</td>
-            <td style="padding:8px 0;color:#111">{$latStr}</td></tr>
-        <tr><td style="padding:8px 0;color:#6b7280">Detected</td>
-            <td style="padding:8px 0;color:#111">{$timeStr}</td></tr>
+
+    <!-- Body -->
+    <div style="background:#fff;padding:24px;border-radius:0 0 12px 12px;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+
+      {$testSnapshot}
+
+      <!-- Domain details table -->
+      <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:4px">
+        <tr style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:9px 0;color:#6b7280;width:130px;font-size:13px">Domain</td>
+          <td style="padding:9px 0;font-weight:700;color:#111">https://{$domain}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:9px 0;color:#6b7280;font-size:13px">Status</td>
+          <td style="padding:9px 0;font-weight:800;color:{$headerColor}">{$status}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:9px 0;color:#6b7280;font-size:13px">Latency</td>
+          <td style="padding:9px 0;color:#374151">{$latStr}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:9px 0;color:#6b7280;font-size:13px">SSL Expiry</td>
+          <td style="padding:9px 0;font-weight:600;color:{$sslColor}">{$sslStr}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:9px 0;color:#6b7280;font-size:13px">DMARC</td>
+          <td style="padding:9px 0;font-weight:600;color:{$dmarcColor}">{$dmarcStr}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:9px 0;color:#6b7280;font-size:13px">SPF</td>
+          <td style="padding:9px 0;color:#374151">{$spfStr}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:9px 0;color:#6b7280;font-size:13px">Nameserver</td>
+          <td style="padding:9px 0;color:#374151">{$nsStr}</td>
+        </tr>
+        <tr>
+          <td style="padding:9px 0;color:#6b7280;font-size:13px">Mail Provider</td>
+          <td style="padding:9px 0;color:#374151">{$mxStr}</td>
+        </tr>
       </table>
-      <p style="margin:16px 0 0;font-size:12px;color:#9ca3af">
-        Sent by <a href="https://github.com/paulfxyz/the-all-seeing-eye" style="color:#8b5cf6">The All Seeing Eye</a>
-        · <a href="https://resend.com" style="color:#9ca3af">via Resend</a>
-      </p>
+
+      {$alertsHtml}
+
+      <!-- Timestamp + footer -->
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <span style="font-size:11px;color:#9ca3af">{$timeStr}</span>
+        <a href="https://github.com/paulfxyz/the-all-seeing-eye"
+           style="font-size:11px;color:#8b5cf6;text-decoration:none;font-weight:600">
+          👁 The All Seeing Eye
+        </a>
+      </div>
     </div>
+
   </div>
 </body>
 </html>
@@ -234,7 +356,6 @@ if (empty($cfg['notify_api_key_enc']) || empty($cfg['notify_from']) || empty($cf
     exit;
 }
 
-/* Decrypt API key */
 $secret = getOrCreateSecret();
 $apiKey = decryptApiKey($cfg['notify_api_key_enc'], $secret);
 if (!$apiKey) {
@@ -246,19 +367,18 @@ if (!$apiKey) {
 $from = $cfg['notify_from'];
 $to   = $cfg['notify_to'];
 
-/* ── Handle test email ── */
+/* ── Test email ── */
 if ($action === 'test') {
-    $subject = '✅ Test — The All Seeing Eye notifications working';
-    $html = buildAlertEmail('test.example.com', 'TEST', null);
-    $result = sendViaResend($apiKey, $from, $to, $subject, $html);
+    $subject = '🧪 Test — The All Seeing Eye notifications working';
+    $html    = buildAlertEmail('up.yourdomain.com', 'TEST', [], true);
+    $result  = sendViaResend($apiKey, $from, $to, $subject, $html);
     echo json_encode($result);
     exit;
 }
 
-/* ── Handle downtime/recovery notification ── */
-$domain  = $posted['domain']  ?? '';
-$status  = $posted['status']  ?? 'DOWN';
-$latency = isset($posted['latency']) && $posted['latency'] !== null ? intval($posted['latency']) : null;
+/* ── Downtime / recovery notification ── */
+$domain = trim($posted['domain'] ?? '');
+$status = strtoupper(trim($posted['status'] ?? 'DOWN'));
 
 if (!$domain) {
     http_response_code(400);
@@ -266,16 +386,27 @@ if (!$domain) {
     exit;
 }
 
-/* Rate limit */
 if (!checkRateLimit()) {
     echo json_encode(['ok' => false, 'message' => 'Rate limit reached (10 emails/hour)']);
     exit;
 }
 
+/* Collect all health fields from the POST body */
+$extra = [
+    'latency'    => isset($posted['latency'])    && $posted['latency']    !== null ? intval($posted['latency'])    : null,
+    'ssl_expiry' => isset($posted['ssl_expiry'])  && $posted['ssl_expiry'] !== '' ? $posted['ssl_expiry']  : null,
+    'ssl_days'   => isset($posted['ssl_days'])    && $posted['ssl_days']   !== null ? intval($posted['ssl_days'])   : null,
+    'dmarc'      => $posted['dmarc'] ?? null,
+    'spf'        => $posted['spf']   ?? null,
+    'ns'         => $posted['ns']    ?? null,
+    'mx'         => $posted['mx']    ?? null,
+];
+
+$emoji   = $status === 'DOWN' ? '🔴' : '✅';
 $subject = $status === 'DOWN'
-    ? "🚨 DOWN: {$domain} is unreachable"
+    ? "🔴 DOWN: {$domain} is unreachable"
     : "✅ RECOVERED: {$domain} is back online";
 
-$html   = buildAlertEmail($domain, $status, $latency);
+$html   = buildAlertEmail($domain, $status, $extra);
 $result = sendViaResend($apiKey, $from, $to, $subject, $html);
 echo json_encode($result);

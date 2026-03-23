@@ -338,53 +338,126 @@ The file itself (`ase_config.json`) will be created with 644 permissions automat
 
 ## 🔔 Setting Up Email Notifications
 
-Email alerts are sent via [Resend](https://resend.com) — a developer-friendly email API with a **free tier** (100 emails/day, no credit card required).
+Email alerts are sent via [Resend](https://resend.com) — a developer-friendly email API with a **free tier** (100 emails/day, no credit card required). Each alert is a full health digest, not just "domain is down".
+
+### What each alert email contains
+
+Every notification includes:
+- **Status** — DOWN (red) or RECOVERED (green) with timestamp
+- **Latency** — round-trip DNS response time at the moment of detection
+- **SSL Expiry** — certificate expiry date + days remaining, colour-coded
+- **DMARC** — email authentication policy (`reject` / `quarantine` / `none` / `missing`)
+- **SPF** — SPF record presence and policy
+- **Nameserver** — DNS provider (Cloudflare, AWS, SiteGround…)
+- **Mail Provider** — detected mail service (Google, ProtonMail, Microsoft…)
+
+**Auto-detected health warnings** appear as coloured alert boxes in the email:
+
+| Condition | Severity |
+|---|---|
+| SSL expired | 🚨 Critical |
+| SSL expiring within 7 days | 🚨 Critical |
+| SSL expiring within 30 days | ⚠️ Warning |
+| DMARC record missing | ⚠️ Warning |
+| DMARC `p=none` (not enforced) | ⚠️ Warning |
+| SPF record missing | ⚠️ Warning |
+
+---
 
 ### Step 1 — Get a Resend account
 
-1. Sign up at [resend.com](https://resend.com)
-2. Verify a sending domain (or use Resend's shared `onboarding@resend.dev` sender for testing)
+1. Sign up free at [resend.com](https://resend.com) — no credit card required
+2. Add and verify your sending domain under **Domains** (e.g. `alerts.yourdomain.com`)
+   - Alternatively, use Resend's shared sandbox `onboarding@resend.dev` for testing only
 3. Go to **API Keys** → **Create API Key** → copy the key (starts with `re_`)
+
+> **Why Resend?** It has a generous free tier (100 emails/day, 3,000/month), excellent deliverability, and a clean API. The free tier is more than enough for personal infrastructure monitoring.
+
+---
 
 ### Step 2 — Configure in the dashboard
 
 1. Open your dashboard → click **More ⋮** → **Notifications**
-2. Paste your Resend API key in the field
-3. Enter your **From email** (must match your verified domain in Resend)
-4. Enter the **To email** (where alerts will be sent)
-5. Enable the toggle and click **Save**
-6. Click **Send Test** to verify everything works
+2. Enable the **Email alerts** toggle
+3. Paste your **Resend API key** in the field (it will be encrypted before saving)
+4. Enter your **From email** — must match your verified Resend domain
+5. Enter the **To email** — where alerts will be delivered
+6. Click **Save**
+7. Click **Send Test** — check your inbox to verify everything works
+
+---
 
 ### How API key security works
 
-Your Resend API key is **never stored in plaintext**:
+> **Design principle:** The API key should never be readable by anyone who gains access to `ase_config.json` — even if they have server file access.
 
-1. You type the key in the browser
-2. The browser sends it (over HTTPS) to `config-write.php`
-3. `config-write.php` generates a random 256-bit secret (`notify_secret.key`) on first use
-4. The key is encrypted with AES-256-GCM using a key derived from that secret
-5. Only the encrypted ciphertext (`notify_api_key_enc`) is stored in `ase_config.json`
-6. When sending an alert, `notify.php` reads the secret from disk and decrypts on-the-fly
+The key is encrypted server-side before being stored:
 
-| File | Contents | Web-accessible? |
+```
+Browser          config-write.php          File system
+───────          ────────────────          ───────────
+key (plaintext)  ───HTTPS POST───▶  encrypt(key, secret)
+                                    ──write──▶  ase_config.json (ciphertext only)
+                                    ──write──▶  notify_secret.key (secret, chmod 0600)
+```
+
+When sending an alert:
+```
+notify.php  ──read──▶  notify_secret.key
+notify.php  ──read──▶  ase_config.json (ciphertext)
+notify.php  ──decrypt(ciphertext, secret)──▶  plaintext key (in memory only)
+notify.php  ──POST──▶  api.resend.com
+```
+
+The encryption is **AES-256-GCM** (authenticated encryption — tamper-proof, not just encrypted). A new random 12-byte IV is generated for every encryption. The authentication tag prevents bit-flipping attacks.
+
+| File | Contents | Protected? |
 |---|---|---|
-| `ase_config.json` | Encrypted API key + settings | ❌ Blocked by `.htaccess` |
-| `notify_secret.key` | Server-side decryption key | ❌ Blocked by `.htaccess` |
-| `notify_rate.json` | Rate limit tracker | ❌ Blocked by `.htaccess` |
+| `ase_config.json` | Encrypted API key + all settings | ❌→✅ Blocked by `.htaccess` |
+| `notify_secret.key` | AES decryption secret (256-bit) | ❌→✅ Blocked + `chmod 0600` |
+| `notify_rate.json` | Rate limit timestamps | ❌→✅ Blocked by `.htaccess` |
+
+> **Important:** `notify_secret.key` is auto-generated on first use and never leaves your server. If you delete it, the encrypted API key becomes unreadable — you'll need to re-enter the key in the dashboard.
+
+---
 
 ### Rate limiting
 
-To prevent alert storms, `notify.php` enforces a maximum of **10 emails per hour**. If more than 10 downtime events occur in an hour, subsequent alerts are silently dropped until the hour resets.
+`notify.php` enforces **10 emails per hour** using a sliding window tracked in `notify_rate.json`. This prevents alert storms if multiple domains flap simultaneously.
+
+```
+Hour 1:  domain-a DOWN  → ✅ email sent (1/10)
+Hour 1:  domain-b DOWN  → ✅ email sent (2/10)
+...
+Hour 1:  domain-j DOWN  → ✅ email sent (10/10)
+Hour 1:  domain-k DOWN  → ❌ rate limit reached — silently dropped
+Hour 2:  domain-a DOWN  → ✅ email sent (1/10) — window reset
+```
+
+---
 
 ### When alerts fire
 
-| Event | Email sent? |
-|---|---|
-| Domain goes DOWN (A record fails) | ✅ Yes |
-| Domain recovers (UP again) | ✅ Yes |
-| Manual refresh detects new downtime | ✅ Yes |
-| Server cron detects downtime | ✅ Yes (if `update-stats.php` is configured) |
-| Same domain still down on next check | ❌ No (only on state change) |
+| Event | Alert sent? | Note |
+|---|---|---|
+| Domain goes DOWN (A record fails) | ✅ Yes | Only on first DOWN, not repeated failures |
+| Domain recovers (UP again) | ✅ Yes | Recovery email clearly marked green |
+| Manual refresh detects new downtime | ✅ Yes | Any `checkAll()` cycle triggers detection |
+| Cron (`update-stats.php`) detects downtime | ✅ Yes | When configured (see Step 3 above) |
+| Same domain still DOWN on next check | ❌ No | Only state transitions trigger alerts |
+| Test button clicked | ✅ Always | Ignores rate limit; sends demo email |
+
+---
+
+### Troubleshooting notifications
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Test email never arrives | Wrong API key or unverified From domain | Check Resend dashboard for errors |
+| "Failed to decrypt API key" | `notify_secret.key` deleted or corrupted | Re-enter API key in Notifications modal |
+| "Notifications disabled" | Toggle off | Enable toggle and Save |
+| Alerts stop after a while | Rate limit hit | Normal — resets after 1 hour |
+| Emails go to spam | From domain not verified in Resend | Verify domain DNS in Resend dashboard |
 
 ---
 
