@@ -1,12 +1,52 @@
 # 📝 Changelog
 
-All notable changes to **the-all-seeing-eye** are documented here.
+All notable changes to **Mercury** (`mercury-sh`) are documented here.
 
 This project follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format
 and adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 > 🗓️ For full setup instructions, see the **[INSTALL.md](./INSTALL.md)**.
-> 👤 Made with ❤️ by [Paul Fleury](https://paulfleury.com) — [@paulfxyz](https://github.com/paulfxyz)
+> 👤 Made with ❤️ by [Paul Fleury](https://mercury.sh) — [@paulfxyz](https://github.com/paulfxyz)
+
+---
+
+## 🔖 [5.0.0] — 2026-03-25
+
+### 🌍 Mercury — Full Brand Relaunch
+
+---
+
+#### The All Seeing Eye → Mercury
+
+Version 5.0.0 marks the complete brand transformation from **The All Seeing Eye** to **Mercury — Domain Guardian**.
+
+- Repository renamed from `the-all-seeing-eye` → `mercury-sh`
+- All references to personal domains removed throughout codebase and docs
+- New landing page at [mercury.sh](https://mercury.sh) with Mercury brand identity
+- Public demo at [demo.mercury.sh](https://demo.mercury.sh) with top-100 world domains
+- BUILTIN domain list expanded from 50 → 100 world's most-visited domains
+
+#### BUILTIN domains: 50 → 100
+
+50 new domains added (ranks 51–100): Baidu, QQ, Samsung, IMDB, MSN, Live, Naver, Weather, WordPress.org, Fandom, iCloud, Booking, Etsy, Rakuten, Expedia, CNN, BBC, VK, Medium, Quora, Walmart, Target, w3schools, Indeed, Glassdoor, Investopedia, Reuters, Substack, Behance, npm, Docker, Kubernetes, GitLab, Bitbucket, Asana, Monday, Linear, Intercom, SendGrid, Mailchimp, Cloudinary, and more.
+
+`domains.list` updated to 100 world sites. No personal domains in any shipped file.
+
+### ✨ Added
+
+- `mercury-sh` repo (renamed from `the-all-seeing-eye`)
+- [mercury.sh](https://mercury.sh) — brand landing page
+- [demo.mercury.sh](https://demo.mercury.sh) — public live demo
+- BUILTIN ranks 51–100 with full NS/MX/DMARC/SPF data
+- 50 new TOOLTIPS entries for new domains
+
+### 🔄 Changed
+
+- All `The All Seeing Eye` → `Mercury` throughout codebase
+- All `all-seeing-eye` → `mercury-sh` in URLs, file references, comments
+- All personal domain references removed
+- `domains.list` → top-100 world domains
+- README, CHANGELOG, INSTALL rewritten with Mercury brand
 
 ---
 
@@ -771,13 +811,13 @@ Each new domain has full TOOLTIP_DATA entries (NS, MX, DMARC, SPF details for ho
 - **Issue:** Two links in `index.html` still used the `your-org` placeholder URL (`https://github.com/your-org/...`) left over from the open-source scaffold:
   - Footer `GitHub ↗` link (line ~350)
   - Help/info modal `⭐ View on GitHub` button (line ~441)
-- **Fix:** Both replaced with `https://github.com/paulfxyz/the-all-seeing-eye`
+- **Fix:** Both replaced with `https://github.com/paulfxyz/mercury-sh`
 - The More ⋮ dropdown GitHub link was already correct since v2.0.0.
 
 ### 🐛 Fixed
 
-- `index.html` — footer GitHub link: `your-org/all-seeing-eye` → `paulfxyz/the-all-seeing-eye`
-- `index.html` — help modal GitHub link: `your-org/the-all-seeing-eye` → `paulfxyz/the-all-seeing-eye`
+- `index.html` — footer GitHub link: `your-org/all-seeing-eye` → `paulfxyz/mercury-sh`
+- `index.html` — help modal GitHub link: `your-org/mercury-sh` → `paulfxyz/mercury-sh`
 
 ---
 
@@ -1110,7 +1150,7 @@ Theme toggle changes now call `saveConfig({ theme: 'light'|'dark' })` — so the
 
 #### PIN Flow Fix — No More Forced Onboarding on Every Visit
 
-- **The problem:** An IIFE added in v1.5.0 checked `PIN_HASH === DEFAULT_PIN_HASH` on page load and immediately replaced the login overlay with the set-PIN modal. This meant every incognito visit triggered the set-PIN onboarding — making the site appear broken on the live `up.paulfleury.com` because users were met with a setup flow instead of a login screen.
+- **The problem:** An IIFE added in v1.5.0 checked `PIN_HASH === DEFAULT_PIN_HASH` on page load and immediately replaced the login overlay with the set-PIN modal. This meant every incognito visit triggered the set-PIN onboarding — making the site appear broken on the live `demo.mercury.sh` because users were met with a setup flow instead of a login screen.
 - **The fix:** The IIFE is removed. The login PIN overlay now shows normally for all visitors. After a successful login, `checkFirstUse()` runs and — only if the default PIN was used — prompts to set a new PIN. A visitor who just wants to use the dashboard with the default PIN types `123456` and is in.
 
 #### Standalone Build Removed
@@ -1201,7 +1241,7 @@ Theme toggle changes now call `saveConfig({ theme: 'light'|'dark' })` — so the
 
 #### Standalone Single-File Build (`index.standalone.html`)
 
-- **The problem:** `up.paulfleury.com` was running the old monolithic `index.html` without `app.css`/`app.js`. Uploading just `index.html` after the v1.3.0 split would break the site.
+- **The problem:** `demo.mercury.sh` was running the old monolithic `index.html` without `app.css`/`app.js`. Uploading just `index.html` after the v1.3.0 split would break the site.
 - **The fix:** `index.standalone.html` — a self-contained single-file build that inlines `app.css` and `app.js` directly. Upload this one file and the site works with zero dependencies (besides Google Fonts CDN).
 - **Both options available:**
   - `index.standalone.html` → single-file deploy, drop on any server
@@ -1348,7 +1388,7 @@ Theme toggle changes now call `saveConfig({ theme: 'light'|'dark' })` — so the
 - **The fix:** A two-step detection algorithm replaces the flat `Own` fallback:
   1. **Named providers first** — AWS, Azure, Google, NS1, Akamai, Wikimedia, ClouDNS, DNSimple, and now **SiteGround** all have explicit pattern matches.
   2. **Apex domain comparison** — extract the last two DNS labels from each NS hostname and compare to the monitored domain's own apex. If all NS hostnames share their apex with the domain (e.g. `cloudflare.com` → `ns3.cloudflare.com`), label it **`Domain`** — meaning the domain operates its own nameserver infrastructure.
-  3. **NS-in-domain check** — if an NS hostname contains the monitored domain's apex as a substring, extract and capitalise the domain name as the label (e.g. `ns1.paulfleury.com` would label as `Paulfleury`).
+  3. **NS-in-domain check** — if an NS hostname contains the monitored domain's apex as a substring, extract and capitalise the domain name as the label (e.g. `ns1.mercury.sh` would label as `Paulfleury`).
   4. **`Own` fallback** — only for genuinely unknown third-party registrar NS that don't match any of the above.
 - **`detectNSProvider(nsRecords, domain)`** — the function now takes a second `domain` argument for the self-NS comparison. All call sites updated.
 - **Two new helper functions added:**
@@ -1426,6 +1466,6 @@ Theme toggle changes now call `saveConfig({ theme: 'light'|'dark' })` — so the
 
 <div align="center">
 
-🗓️ Back to **[README.md](./README.md)** • 🐛 Report issues at **[GitHub Issues](https://github.com/paulfxyz/the-all-seeing-eye/issues)** • ⭐ Star if it helped!
+🗓️ Back to **[README.md](./README.md)** • 🐛 Report issues at **[GitHub Issues](https://github.com/paulfxyz/mercury-sh/issues)** • ⭐ Star if it helped!
 
 </div>

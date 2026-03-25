@@ -1,4 +1,6 @@
-# The All Seeing Eye — Installation Guide
+# Mercury — Installation Guide
+
+*Mercury, the Winged Messenger God — watching over your domains.*
 
 A self-hosted, open-source uptime, DNS, SSL and latency monitor.
 Runs entirely in the browser — no framework, no build step, no database.
@@ -74,9 +76,9 @@ Edit `domains.list` — one bare domain per line, no `https://`:
 
 ```
 # My sites
-paulfleury.com
+mercury.sh
 paulf.xyz
-up.paulfleury.com
+demo.mercury.sh
 
 # Benchmarks
 github.com
@@ -126,10 +128,10 @@ php /home/YOURUSER/public_html/uptime/update-stats.php >> /home/YOURUSER/public_
 After 10 minutes, open **File Manager** and check `cron.log`:
 
 ```
-👁  The All Seeing Eye — update-stats.php v1.0
+👁  Mercury — update-stats.php v1.0
    Started: 2026-03-22T00:30:00Z
 ────────────────────────────────────────────────────────────
-  [1/30] Checking paulfleury.com…
+  [1/30] Checking mercury.sh…
          → UP | 28ms | NS=SiteGround | MX=ProtonMail | DMARC=quarantine | SPF=~all
   ...
 ✓  Checked 30 domains: 30 UP, 0 DOWN, 0 alerts
@@ -230,7 +232,7 @@ RewriteRule ^webhook\.do$ webhook.do [L,T=text/html]
 
 **2. Test that `webhook.do` is accessible** — open
 `https://up.yourdomain.com/webhook.do` in your browser. You should see a
-plain page that says "The All Seeing Eye — Webhook". If you get a 404,
+plain page that says "Mercury — Webhook". If you get a 404,
 check the .htaccess rule. If you get a blank page, the rule isn't active yet.
 
 **3. Create a free account** at [cron-job.org](https://cron-job.org/en/)
@@ -238,7 +240,7 @@ check the .htaccess rule. If you get a blank page, the rule isn't active yet.
 **4. Add a new cron job:**
 
 - Click **CREATE CRONJOB** in the dashboard
-- **Title:** `The All Seeing Eye — paulfleury.com`
+- **Title:** `Mercury — mercury.sh`
 - **URL:** `https://up.yourdomain.com/webhook.do`
   *(replace with your actual URL)*
 - **Schedule:** Every 10 minutes → `*/10 * * * *`

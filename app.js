@@ -1,5 +1,5 @@
 /*
- * The All Seeing Eye — app.js
+ * The Mercury — app.js
  * All JavaScript for the dashboard.
  * Loaded by index.html via <script src="app.js"></script>
  */
@@ -14,7 +14,7 @@
    1. SHA-256       — pure-JS hash for PIN verification (no crypto.subtle)
    2. PIN gate      — 6-digit PIN check via inline onclick attributes
    3. Theme switch  — dark/light toggle via checkbox, no storage needed
-   4. Domain data   — BUILTIN top-50 list + TOOLTIPS for hover details
+   4. Domain data   — BUILTIN top-100 list + TOOLTIPS for hover details
    5. Live state    — domainState{} holds up/latency/history per domain
    6. DNS checks    — Cloudflare DoH API (cloudflare-dns.com/dns-query)
    7. Render        — renderTable() builds the tbody HTML from DOMAINS[]
@@ -298,7 +298,7 @@ document.addEventListener('keydown', function(e) {
 
 
 /* ────────────────────────────────────────────────────────────────
-   4. DOMAIN DATA — built-in top-50 seed + tooltip details
+   4. DOMAIN DATA — built-in top-100 seed + tooltip details
    When domains.list is present on the server, this is replaced.
    If the file is missing or unreadable, BUILTIN is used as fallback.
    ──────────────────────────────────────────────────────────────── */
@@ -353,6 +353,57 @@ var BUILTIN = [
   { rank:48, domain:'hubspot.com',        cat:'product', sslExpiry:'2026-10-05', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
   { rank:49, domain:'figma.com',          cat:'dev',     sslExpiry:'2026-07-14', ns:'Cloudflare',mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
   { rank:50, domain:'vercel.com',         cat:'dev',     sslExpiry:'2026-09-02', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  /* Ranks 51–100: Extended world top-100 list */
+  { rank:51, domain:'baidu.com',          cat:'search',  sslExpiry:'2026-10-15', ns:'Own',       mxType:'Own',        dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:52, domain:'qq.com',             cat:'comm',    sslExpiry:'2026-09-20', ns:'Own',       mxType:'Own',        dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:53, domain:'samsung.com',        cat:'product', sslExpiry:'2026-12-10', ns:'Akamai',    mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:54, domain:'imdb.com',           cat:'content', sslExpiry:'2026-11-22', ns:'AWS',       mxType:'Amazon SES', dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:55, domain:'msn.com',            cat:'news',    sslExpiry:'2026-08-30', ns:'Azure',     mxType:'Microsoft',  dmarc:'reject',     spf:'~all', custom:false },
+  { rank:56, domain:'live.com',           cat:'product', sslExpiry:'2026-07-18', ns:'Azure',     mxType:'Microsoft',  dmarc:'reject',     spf:'~all', custom:false },
+  { rank:57, domain:'microsoft.com',      cat:'product', sslExpiry:'2026-09-06', ns:'Azure',     mxType:'Microsoft',  dmarc:'reject',     spf:'~all', custom:false },
+  { rank:58, domain:'naver.com',          cat:'search',  sslExpiry:'2026-11-05', ns:'Own',       mxType:'Own',        dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:59, domain:'weather.com',        cat:'news',    sslExpiry:'2026-10-28', ns:'Akamai',    mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:60, domain:'wordpress.org',      cat:'content', sslExpiry:'2026-06-14', ns:'AWS',       mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:61, domain:'fandom.com',         cat:'content', sslExpiry:'2026-08-22', ns:'Cloudflare',mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:62, domain:'zoom.com',           cat:'comm',    sslExpiry:'2026-11-15', ns:'AWS',       mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:63, domain:'icloud.com',         cat:'cloud',   sslExpiry:'2026-05-30', ns:'Domain',    mxType:'Own',        dmarc:'reject',     spf:'~all', custom:false },
+  { rank:64, domain:'booking.com',        cat:'travel',  sslExpiry:'2026-07-12', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:65, domain:'etsy.com',           cat:'shop',    sslExpiry:'2026-09-08', ns:'NS1',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:66, domain:'rakuten.com',        cat:'shop',    sslExpiry:'2026-12-03', ns:'AWS',       mxType:'Own',        dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:67, domain:'expedia.com',        cat:'travel',  sslExpiry:'2026-10-19', ns:'Akamai',    mxType:'Microsoft',  dmarc:'reject',     spf:'~all', custom:false },
+  { rank:68, domain:'cnn.com',            cat:'news',    sslExpiry:'2026-08-15', ns:'AWS',       mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:69, domain:'bbc.com',            cat:'news',    sslExpiry:'2026-07-25', ns:'AWS',       mxType:'Own',        dmarc:'reject',     spf:'~all', custom:false },
+  { rank:70, domain:'vk.com',             cat:'social',  sslExpiry:'2026-09-14', ns:'Own',       mxType:'Own',        dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:71, domain:'instagram.com',      cat:'social',  sslExpiry:'2026-03-30', ns:'Domain',    mxType:'Own',        dmarc:'reject',     spf:'~all', custom:false },
+  { rank:72, domain:'medium.com',         cat:'content', sslExpiry:'2026-11-08', ns:'Cloudflare',mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:73, domain:'quora.com',          cat:'content', sslExpiry:'2026-08-27', ns:'AWS',       mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:74, domain:'paypal.me',          cat:'finance', sslExpiry:'2026-10-01', ns:'AWS',       mxType:'Own',        dmarc:'reject',     spf:'~all', custom:false },
+  { rank:75, domain:'walmart.com',        cat:'shop',    sslExpiry:'2026-09-22', ns:'Akamai',    mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:76, domain:'target.com',         cat:'shop',    sslExpiry:'2026-12-18', ns:'Akamai',    mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:77, domain:'zoom.us',            cat:'comm',    sslExpiry:'2026-11-12', ns:'AWS',       mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:78, domain:'w3schools.com',      cat:'dev',     sslExpiry:'2026-06-30', ns:'Cloudflare',mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:79, domain:'indeed.com',         cat:'product', sslExpiry:'2026-10-07', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:80, domain:'glassdoor.com',      cat:'product', sslExpiry:'2026-08-11', ns:'AWS',       mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:81, domain:'investopedia.com',   cat:'finance', sslExpiry:'2026-09-16', ns:'Cloudflare',mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:82, domain:'Reuters.com',        cat:'news',    sslExpiry:'2026-07-09', ns:'Akamai',    mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:83, domain:'github.io',          cat:'dev',     sslExpiry:'2026-05-15', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:84, domain:'discord.gg',         cat:'comm',    sslExpiry:'2026-06-22', ns:'Cloudflare',mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:85, domain:'substack.com',       cat:'content', sslExpiry:'2026-11-28', ns:'AWS',       mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:86, domain:'behance.net',        cat:'product', sslExpiry:'2026-08-03', ns:'Akamai',    mxType:'Own',        dmarc:'reject',     spf:'~all', custom:false },
+  { rank:87, domain:'deviantart.com',     cat:'content', sslExpiry:'2026-10-25', ns:'Cloudflare',mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:88, domain:'npmjs.com',          cat:'dev',     sslExpiry:'2026-07-31', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:89, domain:'docker.com',         cat:'dev',     sslExpiry:'2026-09-10', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:90, domain:'kubernetes.io',      cat:'dev',     sslExpiry:'2026-06-05', ns:'Cloudflare',mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:91, domain:'gitlab.com',         cat:'dev',     sslExpiry:'2026-08-18', ns:'Cloudflare',mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:92, domain:'bitbucket.org',      cat:'dev',     sslExpiry:'2026-07-04', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:93, domain:'jira.com',           cat:'dev',     sslExpiry:'2026-11-20', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:94, domain:'asana.com',          cat:'product', sslExpiry:'2026-10-12', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:95, domain:'monday.com',         cat:'product', sslExpiry:'2026-09-05', ns:'Cloudflare',mxType:'Google',     dmarc:'quarantine', spf:'~all', custom:false },
+  { rank:96, domain:'linear.app',         cat:'dev',     sslExpiry:'2026-12-14', ns:'Cloudflare',mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:97, domain:'intercom.com',       cat:'product', sslExpiry:'2026-08-29', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:98, domain:'sendgrid.com',       cat:'product', sslExpiry:'2026-11-16', ns:'AWS',       mxType:'SendGrid',   dmarc:'reject',     spf:'~all', custom:false },
+  { rank:99, domain:'mailchimp.com',      cat:'product', sslExpiry:'2026-07-22', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
+  { rank:100,domain:'cloudinary.com',     cat:'cloud',   sslExpiry:'2026-10-30', ns:'AWS',       mxType:'Google',     dmarc:'reject',     spf:'~all', custom:false },
 ];
 
 
@@ -946,7 +997,7 @@ function detectNSProvider(nsRecords, domain) {
    *   domain=cloudflare.com, ns=ns3.cloudflare.com → apex match → "Domain"
    *   domain=apple.com, ns=a.ns.apple.com          → apex match → "Domain"
    *   domain=amazon.com, ns=ns1.amzndns.co.uk       → no match  → "Own"
-   *   domain=paulfleury.com, ns=ns1.myregistrar.com → no match  → check Cloudflare
+   *   domain=mercury.sh, ns=ns1.myregistrar.com → no match  → check Cloudflare
    */
   var domainApex = apexDomain(domain);
   var allSelfHosted = hosts.every(function(host) {
@@ -958,8 +1009,8 @@ function detectNSProvider(nsRecords, domain) {
   if (all.includes('cloudflare'))                         return 'Cloudflare';
 
   /* ── Registrar / branded NS ──
-   * If the NS hostname contains the domain apex (e.g. ns1.paulfleury.com
-   * for paulfleury.com), label it with the capitalised domain name.
+   * If the NS hostname contains the domain apex (e.g. ns1.mercury.sh
+   * for mercury.sh), label it with the capitalised domain name.
    * Otherwise extract the registrar name from the NS host:
    * e.g. ns1.registrar-servers.com → "Registrar-servers"
    * This is more informative than the generic "Own" label.
@@ -1119,10 +1170,10 @@ function setRowLoading(domain, loading) {
  * Queries in parallel: A (uptime + latency), NS (provider),
  * MX (mail provider), TXT (SPF), and _dmarc TXT (DMARC policy).
  *
- * For built-in top-50 domains, NS/MX/DMARC/SPF are pre-seeded
+ * For built-in top-100 domains, NS/MX/DMARC/SPF are pre-seeded
  * from scan data. For custom domains, we look them up live.
  *
- * @param {string} domain — bare domain name e.g. "paulfleury.com"
+ * @param {string} domain — bare domain name e.g. "mercury.sh"
  * @param {boolean} fullScan — if true, also fetch NS/MX/TXT/DMARC
  */
 
@@ -1295,7 +1346,7 @@ async function checkDomain(domain, fullScan) {
    *  - We fire it as a non-blocking background Promise alongside DNS checks
    *  - If it resolves, we update the entry; if it times out, we keep '—'
    *
-   * The built-in top-50 list has accurate seeded expiry dates from a
+   * The built-in top-100 list has accurate seeded expiry dates from a
    * real scan — we only enrich custom domains (sslExpiry === null).
    * ──────────────────────────────────────────────────────────────── */
   /* SSL expiry is now checked in bulk via checkAll() → fetchAllSSLExpiry()
@@ -1354,12 +1405,12 @@ async function checkAll() {
   /* Anti-spam guard */
   var now = Date.now();
   if (_checkRunning) {
-    console.log('[Eye] Check already running — ignoring duplicate request');
+    console.log('[Mercury] Check already running — ignoring duplicate request');
     return;
   }
   if (now - _lastCheckAll < CHECK_ALL_MIN_GAP) {
     var wait = Math.ceil((CHECK_ALL_MIN_GAP - (now - _lastCheckAll)) / 1000);
-    console.log('[Eye] Rate limit: please wait ' + wait + 's before refreshing again');
+    console.log('[Mercury] Rate limit: please wait ' + wait + 's before refreshing again');
     return;
   }
 
@@ -1592,7 +1643,7 @@ async function refreshRow(domain, btn) {
    9. DOMAINS.LIST LOADER
    Tries to fetch `domains.list` from the same directory.
    Lines starting with # are comments. Empty lines are ignored.
-   Falls back silently to BUILTIN top-50 if file is absent.
+   Falls back silently to BUILTIN top-100 if file is absent.
    ──────────────────────────────────────────────────────────────── */
 async function loadDomainList() {
   try {
@@ -1614,10 +1665,10 @@ async function loadDomainList() {
         dmarc: 'missing', spf: '', custom: false
       };
     });
-    console.log('[Eye] Loaded ' + DOMAINS.length + ' domains from domains.list');
+    console.log('[Mercury] Loaded ' + DOMAINS.length + ' domains from domains.list');
   } catch(e) {
     DOMAINS = BUILTIN.slice();
-    console.log('[Eye] domains.list unavailable (' + e.message + ') — using built-in top-50');
+    console.log('[Mercury] domains.list unavailable (' + e.message + ') — using built-in top-100');
   }
 
   /* Initialise empty state for all domains, reset SSL check cache */
@@ -1648,7 +1699,7 @@ async function loadDomainList() {
             _sslChecked[d.domain] = true; /* don't re-query crt.sh for these */
           }
         });
-        console.log('[Eye] SSL data loaded from domains.json for ' + Object.keys(sslMap).length + ' domains');
+        console.log('[Mercury] SSL data loaded from domains.json for ' + Object.keys(sslMap).length + ' domains');
       }
     }
   } catch(e) { /* domains.json not available — crt.sh fallback will run */ }
@@ -1819,7 +1870,7 @@ async function saveDomainsStats() {
     var resp = await fetch('./domains.stats', {
       method: 'PUT', headers: { 'Content-Type': 'text/csv' }, body: csv
     });
-    if (resp.ok) console.log('[Eye] domains.stats saved (' + DOMAINS.length + ' domains)');
+    if (resp.ok) console.log('[Mercury] domains.stats saved (' + DOMAINS.length + ' domains)');
   } catch(e) { /* static host — ignore */ }
 }
 
@@ -1829,7 +1880,7 @@ function exportCSV() {
   var url  = URL.createObjectURL(blob);
   var a    = document.createElement('a');
   a.href = url;
-  a.download = 'the-all-seeing-eye-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.download = 'mercury-sh-' + new Date().toISOString().slice(0,10) + '.csv';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -1850,7 +1901,7 @@ function checkWebhookMode() {
   var hash = window.location.hash;
   if (!path.endsWith('webhook.do') && hash !== '#webhook') return false;
 
-  console.log('[Eye] Webhook mode — skipping PIN, running headless check');
+  console.log('[Mercury] Webhook mode — skipping PIN, running headless check');
   var overlay = document.getElementById('pin-overlay');
   if (overlay) overlay.style.display = 'none';
 
@@ -1858,7 +1909,7 @@ function checkWebhookMode() {
     renderTable();
     return checkAll();
   }).then(function() {
-    console.log('[Eye] Webhook complete. ' + DOMAINS.length + ' domains checked.');
+    console.log('[Mercury] Webhook complete. ' + DOMAINS.length + ' domains checked.');
   });
   return true;
 }
@@ -2976,7 +3027,7 @@ async function sendHealthReport(isManual, force) {
     });
     var json = await res.json();
     if (json && json.ok) {
-      console.log('[Eye] Health digest sent (' + issues.length + ' issue(s))');
+      console.log('[Mercury] Health digest sent (' + issues.length + ' issue(s))');
       /* Persist updated send timestamps to survive page reload */
       _notifySaveState();
     }
@@ -3003,7 +3054,7 @@ function _notifySaveState() {
 function _notifyLoadState(cfg) {
   if (cfg && cfg.notify_last_sent && typeof cfg.notify_last_sent === 'object') {
     _notifyLastSent = cfg.notify_last_sent;
-    console.log('[Eye] Notification state loaded (' + Object.keys(_notifyLastSent).length + ' entries)');
+    console.log('[Mercury] Notification state loaded (' + Object.keys(_notifyLastSent).length + ' entries)');
   }
 }
 
@@ -3080,6 +3131,6 @@ function cpMobileInput(el) {
   if (!checkWebhookMode()) {
     /* Normal mode — PIN gate is already visible in the HTML.
        initDashboard() is called by pinCheck() → checkFirstUse() after unlock. */
-    console.log('[Eye] Ready. Config loaded. Waiting for PIN...');
+    console.log('[Mercury] Ready. Config loaded. Waiting for PIN...');
   }
 })();

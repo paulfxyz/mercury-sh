@@ -1,8 +1,8 @@
-# All-Seeing-Eye — Default Domain Watchlist
-# World's top 50 most-visited domains (Similarweb / Cloudflare Radar 2025)
+# Mercury — Default Domain Watchlist
+# World's top 100 most-visited domains (Similarweb / Cloudflare Radar 2025)
 # One domain per line. Lines starting with # are ignored.
 # Replace this file with your own domains to monitor your infrastructure.
-# If this file is missing or unreadable, the built-in top-50 list is used.
+# If this file is missing or unreadable, the built-in top-100 list is used.
 
 google.com
 youtube.com
@@ -54,3 +54,55 @@ atlassian.com
 hubspot.com
 figma.com
 vercel.com
+
+# Ranks 51–100
+baidu.com
+qq.com
+samsung.com
+imdb.com
+msn.com
+live.com
+naver.com
+weather.com
+wordpress.org
+fandom.com
+zoom.com
+icloud.com
+booking.com
+etsy.com
+rakuten.com
+expedia.com
+cnn.com
+bbc.com
+vk.com
+medium.com
+quora.com
+walmart.com
+target.com
+w3schools.com
+indeed.com
+glassdoor.com
+investopedia.com
+reuters.com
+substack.com
+behance.net
+npmjs.com
+docker.com
+kubernetes.io
+gitlab.com
+bitbucket.org
+asana.com
+monday.com
+linear.app
+intercom.com
+sendgrid.com
+mailchimp.com
+cloudinary.com
+hubspot.com
+figma.com
+vercel.com
+notion.so
+slack.com
+stripe.com
+shopify.com
+zoom.us
