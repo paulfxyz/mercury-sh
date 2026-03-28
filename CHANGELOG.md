@@ -92,17 +92,17 @@ All four paths now write to `uptime.json`. Previously, `update-stats.php` (the P
 - cron-job.org callout with free tier badge and example webhook URL
 - Section anchor: `#automation`
 
-#### cron-job.org (demo.ase.so)
+#### cron-job.org (ase.live)
 
-- Job `7418641`: `https://demo.ase.so/webhook.do` — every hour (`0 * * * *`) — active
-- Job `7418643`: `https://demo.ase.so/update-stats.php` — every 6 hours (`0 */6 * * *`) — active
+- Job `7418641`: `https://ase.live/webhook.do` — every hour (`0 * * * *`) — active
+- Job `7418643`: `https://ase.live/update-stats.php` — every 6 hours (`0 */6 * * *`) — active
 
 ### ✨ Added
 
 - `update-stats.php` Step 5.5: merge cron check results into `uptime.json`
 - `app.js`: `uptimeSave()` + `saveDomainsStats()` called after webhook-mode `checkAll()`
 - Landing page: Automated Monitoring section with 4-step flow and cron-job.org callout
-- cron-job.org: 2 jobs created for `demo.ase.so` (hourly webhook + 6h PHP cron)
+- cron-job.org: 2 jobs created for `ase.live` (hourly webhook + 6h PHP cron)
 
 ### 🔧 Fixed
 
@@ -143,23 +143,23 @@ The `tooltipHTML()` function had an early return on `if (!td) return ''` with no
 
 ## 🚀 [5.2.0] — 2026-03-26
 
-### Production Deployment — Live on ase.so & demo.ase.so
+### Production Deployment — Live on ase.so & ase.live
 
 ---
 
 #### What changed
 
-This release marks the first production deployment of ASE to the live SiteGround hosting environment at `ase.so` and `demo.ase.so`. Both subdomains are now live:
+This release marks the first production deployment of ASE to the live SiteGround hosting environment at `ase.so` and `ase.live`. Both subdomains are now live:
 
 - **[ase.so](https://ase.so)** — The marketing landing page, served from `landing.html` (deployed as `index.html` to the `ase.so/public_html/` FTP directory). 11-language i18n, full SEO meta suite, animated demo preview, live stats band, full feature breakdown.
-- **[demo.ase.so](https://demo.ase.so)** — The live app, served from `index.html` + `app.js` + `app.css` + PHP backends. Pre-loaded with representative demo domains. PIN-protected. No setup required to explore.
+- **[ase.live](https://ase.live)** — The live app, served from `index.html` + `app.js` + `app.css` + PHP backends. Pre-loaded with representative demo domains. PIN-protected. No setup required to explore.
 
 #### Infrastructure setup
 
 - SiteGround shared hosting, FTP access at `gnldm1107.siteground.biz:21`
 - Two separate document roots managed under the same FTP account:
   - `ase.so/public_html/` → landing page only
-  - `demo.ase.so/public_html/` → full application stack
+  - `ase.live/public_html/` → full application stack
 - Apache `.htaccess` handles no-cache headers, `webhook.do` routing, and file protection
 - PHP 7.4+ required on demo subdomain for `config-write.php`, `uptime-write.php`, `notify.php`, `ssl-check.php`, `update-stats.php`
 
@@ -170,7 +170,7 @@ ase.so/public_html/
 ├── index.html          ← landing page (from landing.html)
 └── i18n.js             ← translation file, 11 languages
 
-demo.ase.so/public_html/
+ase.live/public_html/
 ├── index.html          ← ASE app shell
 ├── app.js              ← all app logic (~82 KB)
 ├── app.css             ← all styles (~41 KB)
@@ -303,7 +303,7 @@ Version 5.0.0 marks the complete brand transformation from **The All Seeing Eye*
 - Repository renamed from `the-all-seeing-eye` → `ase`
 - All references to personal domains removed throughout codebase and docs
 - New landing page at [ase.so](https://ase.so) with ASE brand identity
-- Public demo at [demo.ase.so](https://demo.ase.so) with top-100 world domains
+- Public demo at [ase.live](https://ase.live) with top-100 world domains
 - BUILTIN domain list expanded from 50 → 100 world's most-visited domains
 
 #### BUILTIN domains: 50 → 100
@@ -316,7 +316,7 @@ Version 5.0.0 marks the complete brand transformation from **The All Seeing Eye*
 
 - `ase` repo (renamed from `the-all-seeing-eye`)
 - [ase.so](https://ase.so) — brand landing page
-- [demo.ase.so](https://demo.ase.so) — public live demo
+- [ase.live](https://ase.live) — public live demo
 - BUILTIN ranks 51–100 with full NS/MX/DMARC/SPF data
 - 50 new TOOLTIPS entries for new domains
 
@@ -1430,7 +1430,7 @@ Theme toggle changes now call `saveConfig({ theme: 'light'|'dark' })` — so the
 
 #### PIN Flow Fix — No More Forced Onboarding on Every Visit
 
-- **The problem:** An IIFE added in v1.5.0 checked `PIN_HASH === DEFAULT_PIN_HASH` on page load and immediately replaced the login overlay with the set-PIN modal. This meant every incognito visit triggered the set-PIN onboarding — making the site appear broken on the live `demo.ase.so` because users were met with a setup flow instead of a login screen.
+- **The problem:** An IIFE added in v1.5.0 checked `PIN_HASH === DEFAULT_PIN_HASH` on page load and immediately replaced the login overlay with the set-PIN modal. This meant every incognito visit triggered the set-PIN onboarding — making the site appear broken on the live `ase.live` because users were met with a setup flow instead of a login screen.
 - **The fix:** The IIFE is removed. The login PIN overlay now shows normally for all visitors. After a successful login, `checkFirstUse()` runs and — only if the default PIN was used — prompts to set a new PIN. A visitor who just wants to use the dashboard with the default PIN types `123456` and is in.
 
 #### Standalone Build Removed
@@ -1521,7 +1521,7 @@ Theme toggle changes now call `saveConfig({ theme: 'light'|'dark' })` — so the
 
 #### Standalone Single-File Build (`index.standalone.html`)
 
-- **The problem:** `demo.ase.so` was running the old monolithic `index.html` without `app.css`/`app.js`. Uploading just `index.html` after the v1.3.0 split would break the site.
+- **The problem:** `ase.live` was running the old monolithic `index.html` without `app.css`/`app.js`. Uploading just `index.html` after the v1.3.0 split would break the site.
 - **The fix:** `index.standalone.html` — a self-contained single-file build that inlines `app.css` and `app.js` directly. Upload this one file and the site works with zero dependencies (besides Google Fonts CDN).
 - **Both options available:**
   - `index.standalone.html` → single-file deploy, drop on any server

@@ -14,7 +14,7 @@
 
 ---
 
-**[🔴 Live Demo](https://demo.ase.so)** &nbsp;·&nbsp; **[🌐 ase.so](https://ase.so)** &nbsp;·&nbsp; **[📦 GitHub Releases](https://github.com/paulfxyz/ase/releases)** &nbsp;·&nbsp; **[⭐ Star on GitHub](https://github.com/paulfxyz/ase)**
+**[🔴 Live Demo](https://ase.live)** &nbsp;·&nbsp; **[🌐 ase.so](https://ase.so)** &nbsp;·&nbsp; **[📦 GitHub Releases](https://github.com/paulfxyz/ase/releases)** &nbsp;·&nbsp; **[⭐ Star on GitHub](https://github.com/paulfxyz/ase)**
 
 ---
 
@@ -90,7 +90,7 @@ The reasons:
 
 The rebrand to ASE happened as part of the v5.0.0 release that made the project fully public. ASE — the winged messenger god — is the right metaphor: fast, watchful, a conduit between you and the truth about your infrastructure. The name is distinctive, easy to remember, and doesn't carry the slightly ominous connotation of an all-seeing eye.
 
-The repository was renamed from `the-all-seeing-eye` to `ase`. The landing page moved to `ase.so`. The demo went live at `demo.ase.so` showing the top 100 most-visited domains on the internet, checked in real time.
+The repository was renamed from `the-all-seeing-eye` to `ase`. The landing page moved to `ase.so`. The demo went live at `ase.live` showing the top 100 most-visited domains on the internet, checked in real time.
 
 ---
 
@@ -2192,7 +2192,7 @@ Full history with technical change notes.
 - `update-stats.php`: new Step 5.5 merges cron check results into `uptime.json` (same atomic write as `uptime-write.php`)
 - `app.js` webhook mode: `uptimeSave()` + `saveDomainsStats()` now called after `checkAll()` — previously missing from the webhook path
 - Landing page: new **Automated Monitoring** section with 4-step visual flow (webhook → check → persist → alert) and cron-job.org callout
-- `demo.ase.so`: 2 cron-job.org jobs created — hourly `webhook.do` (job `7418641`) + 6-hour `update-stats.php` (job `7418643`)
+- `ase.live`: 2 cron-job.org jobs created — hourly `webhook.do` (job `7418641`) + 6-hour `update-stats.php` (job `7418643`)
 - All version strings bumped to 5.4.0
 
 ### v5.3.0 — 2026-03-26 — Tooltip bugfix: all 100 domains
@@ -2206,14 +2206,14 @@ Full history with technical change notes.
 - Footer duplicate "MIT License" removed — now reads "Made by Paul Fleury with ❤️ + AI"
 - All version strings bumped to 5.3.0 across README, landing page, i18n (11 languages)
 
-### v5.2.0 — 2026-03-26 — Production Deployment: ase.so + demo.ase.so
+### v5.2.0 — 2026-03-26 — Production Deployment: ase.so + ase.live
 
 **First live deployment** to SiteGround hosting.
 
 **Changes:**
 - `landing.html` deployed as `index.html` to `ase.so/public_html/`
-- Full app stack deployed to `demo.ase.so/public_html/`
-- `demo.ase.so`: PIN gate bypassed — dashboard loads directly for public demo
+- Full app stack deployed to `ase.live/public_html/`
+- `ase.live`: PIN gate bypassed — dashboard loads directly for public demo
 - Space Grotesk logotype: `ase` + `.so` (smaller, bold italic, dropped baseline)
 - Inline SVG favicon + Apple Touch Icon + PWA meta tags added to landing page
 - "Perplexity Computer" branding removed across all files — replaced with "Made with ❤️ + AI"
@@ -2240,7 +2240,7 @@ Full history with technical change notes.
 **Changes:**
 - Brand rebrand: all references to "The All Seeing Eye" replaced with "ASE — The All-Seeing-Eye · Domain Guardian"
 - `ase.so` landing page live
-- `demo.ase.so` public demo with top-100 world domains
+- `ase.live` public demo with top-100 world domains
 - BUILTIN domain list expanded 50 → 100 domains (ranks 51–100: Baidu, QQ, Samsung, IMDB, MSN, CNN, BBC, Substack, npm, Docker, GitLab, and more)
 - All personal domains removed from shipped `domains.list`
 - Mobile PIN UX: no duplicate dots, centred input, `requestAnimationFrame + setTimeout(120ms)` auto-focus
@@ -2400,7 +2400,7 @@ Suggestions and contributions welcome. Nothing here is committed — it's a list
 Built by **Paul Fleury** — [paulf.xyz](https://paulf.xyz) / [@paulfxyz on GitHub](https://github.com/paulfxyz)
 
 - Website: [ase.so](https://ase.so)
-- Demo: [demo.ase.so](https://demo.ase.so)
+- Demo: [ase.live](https://ase.live)
 - GitHub: [github.com/paulfxyz/ase](https://github.com/paulfxyz/ase)
 
 ### Built with AI
