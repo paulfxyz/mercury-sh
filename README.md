@@ -1,4 +1,4 @@
-# ⚡ ASE — The All-Seeing-Eye · Domain Guardian
+# 👁 ASE — The All-Seeing-Eye · Domain Guardian
 
 [![HTML](https://img.shields.io/badge/HTML-5-orange?style=flat-square&logo=html5&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/HTML)
 [![JavaScript](https://img.shields.io/badge/JavaScript-ES2020-yellow?style=flat-square&logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
